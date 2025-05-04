@@ -1,0 +1,84 @@
+#========================================================================
+# General / OS / IDE ignores
+#========================================================================
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+*.old
+*.sw? 
+
+# VSCode 
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IDEA
+.idea/
+
+#  Editor/Tool specific 
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+#========================================================================
+# Dependency directories
+#========================================================================
+# Ignore node_modules in both client and server subdirectories
+client/node_modules/
+server/node_modules/
+
+
+#========================================================================
+# Build output / Distribution folders
+#========================================================================
+client/dist/
+client/dist-ssr/
+client/build/
+server/dist/  
+
+#========================================================================
+# Logs
+#========================================================================
+
+*.log
+
+client/npm-debug.log*
+client/yarn-debug.log*
+client/yarn-error.log*
+client/pnpm-debug.log*
+client/lerna-debug.log*
+
+server/npm-debug.log*
+server/yarn-debug.log*
+server/yarn-error.log*
+server/pnpm-debug.log*
+server/lerna-debug.log*
+
+
+#========================================================================
+# Environment variables
+#========================================================================
+.env
+.env.*
+!.env.example
+!.env.production.example
+!.env.development.example
+
+server/.env
+server/.env.*
+!server/.env.example
+
+client/.env
+client/.env.*
+client/*.local # Keep the *.local rule specific to client
+!client/.env.example
+
+
+#========================================================================
+# Other common ignores
+#========================================================================
+coverage/
