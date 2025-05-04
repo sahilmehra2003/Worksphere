@@ -9,6 +9,7 @@ import LeaveBalance from '../models/leaveBalance.model.js';
 // utility
 import { sendMail } from '../utility/sendEmail.util.js';
 import { otpEmailTemplate } from '../utility/_email_templates/verificationEmail.template.js';
+import { welcomeEmailTemplate } from '../utility/_email_templates/welcomeEmail.template.js';
 
 dotenv.config();
 
@@ -123,6 +124,20 @@ export const verifyOtp = async (req, res) => {
         await OTP.deleteOne({ _id: latestOtpDoc._id });
 
         console.log(`Email verified successfully for ${email}`);
+        
+        try {
+            await sendMail(
+                employee.email,
+                employee.name,
+                "Welcome to Worksphere!",       
+                employee.name,                 
+                welcomeEmailTemplate            
+            );
+            console.log(`Welcome email sent successfully to ${employee.email}`);
+       } catch (mailError) {
+            console.error(`Failed to send welcome email to ${employee.email} after verification:`, mailError);
+       }
+
         return res.status(200).json({
             success: true,
             message: "Email verified successfully.",

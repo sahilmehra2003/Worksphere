@@ -20,7 +20,9 @@ import managementRoutes from './routes/management.js'
 import clientRoutes from './routes/client.js'
 import reviewCycleRoues from './routes/reviewCycle.routes.js'
 import employeePerformanceRoutes from './routes/employeePerformance.routes.js'
-import taksRoutes from './routes/tasks.routes.js'
+import taksRoutes from './routes/tasks.routes.js';
+import timeSheetRoute from './routes/timeSheet.routes.js';
+import attendanceRoutes from './routes/attendance.routes.js';
 
 const app=express()
 
@@ -62,7 +64,8 @@ app.use('/leaveSystem',leaveSystemRoutes);
 app.use('/reviewCycle',reviewCycleRoues);
 app.use('/employeePerformance',employeePerformanceRoutes);
 app.use('/taskRoutes',taksRoutes);
-
+app.use('/timesheet',timeSheetRoute);
+app.use('/attendanceRoutes',attendanceRoutes)
 
 
 

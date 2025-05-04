@@ -189,7 +189,7 @@ This project requires environment variables for configuration.
         * `PORT`: The port number for the backend server (e.g., 4000).
         * `JWT_SECRET`: A strong, random secret key for signing JWTs.
         * `JWT_EXPIRE`: JWT expiry time (e.g., `1d`, `2h`).
-        * `FRONTEND_URL`: The base URL of your running frontend application (e.g., `http://localhost:3000`) - used in email links.
+        * `FRONTEND_URL`: The base URL of your running frontend application (e.g., `http://localhost:5173`) - used in email links.
         * `BASE_URL`: The base URL where the backend server is accessible (e.g., `http://localhost:4000`) - used for logo URL in emails if self-hosted.
         * `OPENCAGE_API_KEY`: Your API key from OpenCage Geocoding.
         * `CALENDARIFIC_API_KEY`: Your API key from Calendarific.

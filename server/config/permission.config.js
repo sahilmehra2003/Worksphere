@@ -44,6 +44,12 @@ export const Permissions = Object.freeze({
     // Reporting
     VIEW_REPORTS: 'view_reports',
 
+      // Timesheet Permissions 
+      APPROVE_TIMESHEETS: 'approve_timesheets',
+      VIEW_ALL_TIMESHEETS: 'view_all_timesheets',  
+      VIEW_TEAM_TIMESHEETS: 'view_team_timesheets', 
+
+
     // Add other permissions (MANAGE_PROJECTS, MANAGE_CLIENTS etc.)
 });
 
@@ -77,7 +83,10 @@ export const rolePermissions = {
         Permissions.VIEW_OWN_TASKS,
         Permissions.MARK_OWN_TASK_COMPLETE,
         Permissions.UPDATE_TASKS,
-        Permissions.VIEW_OTHER_TASKS
+        Permissions.VIEW_OTHER_TASKS,
+        Permissions.APPROVE_TIMESHEETS, 
+        Permissions.VIEW_ALL_TIMESHEETS, 
+        Permissions.VIEW_TEAM_TIMESHEETS,
     ],
 
     Manager: [
@@ -101,7 +110,9 @@ export const rolePermissions = {
         Permissions.VIEW_OWN_TASKS,
         Permissions.MARK_OWN_TASK_COMPLETE,
         Permissions.UPDATE_TASKS,
-        Permissions.VIEW_OTHER_TASKS
+        Permissions.VIEW_OTHER_TASKS,
+        Permissions.APPROVE_TIMESHEETS, 
+        Permissions.VIEW_TEAM_TIMESHEETS,
     ],
 
     DepartmentHead: [ 
@@ -125,7 +136,9 @@ export const rolePermissions = {
         Permissions.VIEW_OWN_TASKS,
         Permissions.MARK_OWN_TASK_COMPLETE,
         Permissions.UPDATE_TASKS,
-        Permissions.VIEW_OTHER_TASKS
+        Permissions.VIEW_OTHER_TASKS,
+        Permissions.APPROVE_TIMESHEETS, 
+        Permissions.VIEW_TEAM_TIMESHEETS,
     ],
 
     TeamHead: [ 
@@ -146,7 +159,9 @@ export const rolePermissions = {
         Permissions.VIEW_OWN_TASKS,
         Permissions.MARK_OWN_TASK_COMPLETE,
         Permissions.UPDATE_TASKS,
-        Permissions.VIEW_OTHER_TASKS
+        Permissions.VIEW_OTHER_TASKS,
+        Permissions.APPROVE_TIMESHEETS, 
+        Permissions.VIEW_TEAM_TIMESHEETS,
     ],
 
     Employee: [
