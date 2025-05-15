@@ -1,10 +1,13 @@
 import express from "express";
-import {createDepartment,getAllDepartments,updateDepartment,getDepartmentById,deleteDepartment} from "../controllers/departmentController.js"
+import {createDepartment,getAllDepartments,updateDepartment,getDepartmentById,setDepartmentInactive} from "../controllers/departmentController.js"
+import { authN, isAdmin } from "../middlewares/auth.js";
 const router=express.Router();
 
 router.get('/departments',getAllDepartments);
 router.get('/department/:id', getDepartmentById);
 router.post('/departments/create',createDepartment);
 router.put('/department/update/:id',updateDepartment)
-router.delete('/department/delete/:id', deleteDepartment);
+router.patch('/department/setInactive/:id',authN,isAdmin,setDepartmentInactive);
+
+
 export default router;

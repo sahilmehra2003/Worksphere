@@ -120,7 +120,7 @@ export const getDepartmentById = async (req, res) => {
       .populate("employees", "name email position") // Populate employees details
       .populate("clientsAllocated", "name contactInfo") // Populate clients details
       .populate("currentProjecs", "title description"); // Populate project details
-
+       
     if (!department) {
       return res.status(404).json({
         success: false,
@@ -141,8 +141,8 @@ export const getDepartmentById = async (req, res) => {
   }
 };
 
-// delete department
-export const deleteDepartment = async (req, res) => {
+// setting the department as inactive 
+export const setDepartmentInactive = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -163,13 +163,13 @@ export const deleteDepartment = async (req, res) => {
       });
     }
 
-    // Delete the department
-    const deletedDepartment = await Department.findByIdAndDelete(id);
+    // Set  the department as inactive
+    const departmentInactive= await Department.findByIdAndUpdate(id, { status: 'Inactive' });
     return res.status(200).json({
       success: true,
       message: "Department deleted successfully and references updated",
-      deleteDepartment:deletedDepartment
-    });
+      deleteDepartment:departmentInactive
+    },{new:true});
   } catch (error) {
     console.error("Error deleting department:", error);
     return res.status(500).json({

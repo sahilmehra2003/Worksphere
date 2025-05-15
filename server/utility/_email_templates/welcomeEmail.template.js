@@ -54,7 +54,7 @@ export const welcomeEmailTemplate = (name) => {
 
             <tr>
               <td align="center" style="padding: 25px 0 20px 0; border-bottom: 1px solid #dddddd;">
-                <img class="logo" src="${logoUrl}" alt="Worksphere Logo" width="150" style="max-width: 150px; height: auto; display: block; margin: 0 auto;">
+                <img class="logo" src="${logoUrl}" alt="Worksphere Logo" width="150" style="max-width: 150px; height: auto; display: block; margin: 0 auto; filter:invert(1) hue-rotate(180deg);">
               </td>
             </tr>
 
@@ -80,8 +80,6 @@ export const welcomeEmailTemplate = (name) => {
                 <p style="margin: 0.5em 0 0 0;">Best regards,<br>The Worksphere Team</p>
               </td>
             </tr>
-
-            {/* */}
             <tr>
               <td class="footer-td">
                  <p>
@@ -91,7 +89,6 @@ export const welcomeEmailTemplate = (name) => {
               </td>
             </tr>
           </table>
-          {/* */}
         </td>
       </tr>
     </table>

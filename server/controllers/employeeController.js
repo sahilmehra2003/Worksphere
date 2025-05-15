@@ -293,19 +293,47 @@ export const updatePassword = async (req, res) => {
   }
 };
 
-export const deleteEmployee = async (req, res) => {
+export const setEmployeeInactive = async (req, res) => {
   try {
     const { id } = req.params;
-
-    if (req.user.role !== "Admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized: Only admins can delete employees"
-      });
+    const {employmentStatus}=req.body
+    if (!id) {
+       return res.status(400).json({
+          success:false,
+          message:"Invalid employee id provided"
+       })
     }
-
-    const employee = await Employee.findByIdAndDelete(id);
-    if (!employee) {
+    if (!employmentStatus) {
+       return res.status(400).json({
+          success:false,
+          message:"Please provide the employment status"
+       })
+    }
+    
+    if (!['Terminated','Resigned'].includes(employmentStatus)) {
+        return res.status(404).json({
+            success:false,
+            message:"This controller is to set employee inactive"
+        })
+    }
+    const employeeToCleanup = await Employee.findById(id);
+    if (!employeeToCleanup) {
+       return res.status(404).json({
+          success:false,
+          message:"Employee not found"
+       })
+    }
+    if (!['working','pending_approval']) {
+       return res.status(404).json({
+        
+          success:false,
+          message:"Employee is already incactive"
+       })
+    }
+    const updateEmployee = await Employee.findByIdAndUpdate(id,{
+      employmentStatus:employmentStatus
+    }, { new: true, runValidators: true }).select("-password");
+    if (!updateEmployee) {
       return res.status(404).json({
         success: false,
         message: "Employee not found"
@@ -315,28 +343,29 @@ export const deleteEmployee = async (req, res) => {
     // Remove employee references from related documents
     const updatePromises = [];
     
-    if (employee.department) {
+    if (updateEmployee.department) {
       updatePromises.push(
         Department.findByIdAndUpdate(
-          employee.department,
+          employeeToCleanup.department,
           { $pull: { employees: id } }
         )
       );
     }
 
-    if (employee.currentProjects) {
+    if (employeeToCleanup.currentProjects && employeeToCleanup.currentProjects.length > 0) {
+      // Use updateMany for arrays
       updatePromises.push(
-        Project.findByIdAndUpdate(
-          employee.currentProjects,
-          { $pull: { teamMembers: id } }
-        )
+          Project.updateMany(
+              { _id: { $in: employeeToCleanup.currentProjects } },
+              { $pull: { members: id } } 
+          )
       );
-    }
+  }
 
-    if (employee.projectTeam) {
+    if (updateEmployee.projectTeam) {
       updatePromises.push(
         ProjectTeam.findByIdAndUpdate(
-          employee.projectTeam,
+          updateEmployee.projectTeam,
           { $pull: { members: id } }
         )
       );

@@ -1,4 +1,4 @@
-import  { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { jwtDecode } from 'jwt-decode';
 import toast from "react-hot-toast";
 import { Navigate, Outlet } from "react-router-dom";
@@ -36,7 +36,6 @@ const hasRole = (role) => {
   }
 };
 
-// eslint-disable-next-line react/prop-types
 const Protected = ({ role }) => {
   const [redirectPath, setRedirectPath] = useState("");
 

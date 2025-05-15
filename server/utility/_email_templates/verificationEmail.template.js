@@ -5,8 +5,8 @@ export const otpEmailTemplate = (name, otp) => {
 
   const containerStyle = "max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; font-family: Arial, sans-serif; line-height: 1.6; background-color: #ffffff;"; // Added white background to container
   const headerStyle = "text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 15px; margin-bottom: 20px;";
-  const logoStyle = "max-width: 250px; height:auto; margin-bottom: 10px; filter:invert(1) hue-rotate(180deg);"; 
-  const contentStyle = "margin-bottom: 20px; color: #333;"; 
+   
+  const contentStyle = "margin-bottom: 20px; color: #333;"; const logoStyle = "max-width: 250px; height:auto; margin-bottom: 10px; filter:invert(1) hue-rotate(180deg);";
   const otpWrapperStyle = "text-align: center; margin: 25px 0;";
   const otpStyle = "font-size: 28px; font-weight: bold; color: #1a1a1a; background-color: #f2f2f2; padding: 12px 20px; border-radius: 5px; display: inline-block; letter-spacing: 3px;";
   const footerStyle = "text-align: center; font-size: 12px; color: #888; margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd;";

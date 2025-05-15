@@ -5,11 +5,12 @@ import {
     getAllEmployees, 
     createEmployee, 
     updateEmployee, 
-    deleteEmployee,
-    updatePassword 
+    updatePassword, 
+    setEmployeeInactive
 } from "../controllers/employeeController.js";
 import { authN, isAdmin, isAdminOrEmployee } from "../middlewares/auth.js";
-
+import {checkPermission} from '../middlewares/permission.middleware.js'
+import { Permissions } from "../config/permission.config.js";
 // Public route (example)
 router.get('/employees/public', getAllEmployees);
 
@@ -27,11 +28,11 @@ router.get('/employee/:id', authN, isAdminOrEmployee, (req, res, next) => {
 
 // Employee can view all employees (but with limited info)
 router.get('/employees', authN, isAdminOrEmployee, getAllEmployees);
-
-// Only admin can create/update/delete employees
+// forgot password
+router.patch('/change-password', authN, updatePassword);
+// Only admin and hr can create/update/delete employees
 router.post('/employees/create', authN, isAdmin, createEmployee);
 router.put('/employees/:id', authN, isAdmin, updateEmployee);
-router.patch('/change-password', authN, updatePassword);
-router.delete('/employees/delete/:id', authN, isAdmin, deleteEmployee);
+router.patch('/employees/setInactive/:id', authN, checkPermission(Permissions.MANAGE_EMPLOYEES),setEmployeeInactive);
 
 export default router;

@@ -5,44 +5,42 @@ const employeeSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, "Employee name is required"],
+      required: [true, "Employee name is required"],      
       trim: true,
     },
     email: {
       type: String,
       required: [true, "Email is required"],
-      unique: true, // Ensure email is unique
-      lowercase: true, // Store emails consistently in lowercase
+      unique: true, 
+      lowercase: true, 
       match: [
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         "Please provide a valid email address",
       ],
       trim: true,
-      index: true, // Index for faster lookups/login
+      index: true, 
     },
     password: {
       type: String,
       required: function () {
         return !this.googleId;
-      }, // Password required only if not a Google signup
+      }, 
       minlength: [6, "Password must be at least 6 characters long"],
-      select: false, // Hide password by default when querying employees
+      select: false, 
     },
     googleId: {
-      // Added for Google OAuth linking
       type: String,
       unique: true,
       sparse: true,
     },
     isProfileComplete: {
-      // Added to track profile completion (esp. after OAuth signup)
       type: Boolean,
-      default: true, // Assume complete unless set otherwise (e.g., during Google signup)
+      default: true, 
     },
     phoneNumber: {
       type: String,
       required: [true, "Phone number is required"],
-      match: [/^\d{10}$/, "Please provide a valid 10-digit phone number"], // Adjust regex if needed
+      match: [/^\d{10}$/, "Please provide a valid 10-digit phone number"], 
       trim: true,
     },
     city: {
@@ -76,7 +74,7 @@ const employeeSchema = new mongoose.Schema(
     },
     manager: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Employee", // Self-reference
+      ref: "Employee", 
       default: null,
     },
     client: [
@@ -87,7 +85,7 @@ const employeeSchema = new mongoose.Schema(
       },
     ],
     projectTeam: {
-      // Assigned project team (if applicable)
+      
       type: mongoose.Schema.Types.ObjectId,
       ref: "ProjectTeam",
       default: null,
@@ -118,8 +116,7 @@ const employeeSchema = new mongoose.Schema(
         "working",
         "resigned",
         "terminated",
-        "on_leave",
-        "pending_verification",
+        "pending_approval",
       ], 
       default: "working",
       index: true,
