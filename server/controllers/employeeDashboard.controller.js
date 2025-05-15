@@ -1,10 +1,8 @@
-// Create controllers/dashboardController.js
-
 import Employee from '../models/employeeSchema.js';
 import Task from '../models/Task.model.js';
 import LeaveRequest from '../models/leaveRequest.model.js';
 import CountryCalendar from '../models/calender.model.js'; // Assuming this is your holiday calendar model
-// import Announcement from '../models/announcement.model.js'; // Assuming you'll create this model
+import Announcement from '../models/announcement.model.js'; // Uncommented
 import { getStartOfWeek } from '../utils/dateUtils.js'; // If needed for date manipulations
 import mongoose from 'mongoose';
 
@@ -15,12 +13,27 @@ export const getEmployeeDashboardSummary = async (req, res) => {
         const userCountry = req.user.country;
         const now = new Date();
 
-        // TODO: Uncomment when Announcement model is created
-        // const announcements = await Announcement.find()
-        //     .sort({ createdAt: -1 })
-        //     .limit(3)
-        //     .select('title content createdAt')
-        //     .lean();
+        // Fetch announcements
+        let announcements = [];
+        try {
+            announcements = await Announcement.find({
+                status: 'Published',
+                $or: [
+                    { publishDate: { $exists: false } },
+                    { publishDate: { $lte: now } }
+                ],
+                $or: [
+                    { expiryDate: { $exists: false } },
+                    { expiryDate: { $gt: now } }
+                ]
+            })
+                .sort({ isSticky: -1, publishDate: -1 })
+                .limit(3)
+                .select('title content publishDate isSticky views')
+                .lean();
+        } catch (announcementError) {
+            console.warn("Error fetching announcements:", announcementError.message);
+        }
 
         const upcomingHolidays = await getUpcomingHolidays(userCountry, now);
 
@@ -28,10 +41,10 @@ export const getEmployeeDashboardSummary = async (req, res) => {
             assignedTo: employeeId,
             isCompleted: false
         })
-        .populate('createdBy', 'name')
-        .sort({ deadlineDate: 1, priority: -1, createdAt: 1 })
-        .limit(10)
-        .lean();
+            .populate('createdBy', 'name')
+            .sort({ deadlineDate: 1, priority: -1, createdAt: 1 })
+            .limit(10)
+            .lean();
 
         const { upcomingTasks, overdueTasks } = categorizeTasks(incompleteTasks, now);
 
@@ -42,7 +55,7 @@ export const getEmployeeDashboardSummary = async (req, res) => {
             .lean();
 
         const dashboardData = {
-            // announcements, // TODO: Uncomment when Announcement model is created
+            announcements,
             upcomingHolidays,
             pendingTasks: {
                 upcoming: upcomingTasks.slice(0, 5),
@@ -68,7 +81,7 @@ export const getEmployeeDashboardSummary = async (req, res) => {
 
 const getUpcomingHolidays = async (userCountry, now) => {
     if (!userCountry) return [];
-    
+
     const calendar = await CountryCalendar.findOne({ country: userCountry });
     if (!calendar?.holidays) return [];
 

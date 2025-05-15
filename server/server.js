@@ -23,6 +23,8 @@ import employeePerformanceRoutes from './routes/employeePerformance.routes.js'
 import taksRoutes from './routes/tasks.routes.js';
 import timeSheetRoute from './routes/timeSheet.routes.js';
 import attendanceRoutes from './routes/attendance.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
+import announcemetRoutes from './routes/announcement.routes.js'
 
 const app=express()
 
@@ -65,8 +67,9 @@ app.use('/reviewCycle',reviewCycleRoues);
 app.use('/employeePerformance',employeePerformanceRoutes);
 app.use('/taskRoutes',taksRoutes);
 app.use('/timesheet',timeSheetRoute);
-app.use('/attendanceRoutes',attendanceRoutes)
-
+app.use('/attendanceRoutes', attendanceRoutes);
+app.use('/dashboardRoutes', dashboardRoutes);
+app.use('/announcementRoutes', announcemetRoutes);
 
 
 
