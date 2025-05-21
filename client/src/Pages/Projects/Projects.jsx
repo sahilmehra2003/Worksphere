@@ -10,8 +10,8 @@ const ProjectDataGrid = () => {
     useEffect(() => {
         const fetchProjects = async () => {
             try {
-                const response = await axios.get('http://localhost:4000/projectData/projects');
-                setProjects(response.data);
+                const response = await axios.get('http://localhost:4000/api/v1/projectData/projects');
+                setProjects(response?.data);
             } catch (err) {
                 setError(err.message);
             } finally {

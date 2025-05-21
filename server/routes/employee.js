@@ -6,7 +6,8 @@ import {
     createEmployee, 
     updateEmployee, 
     updatePassword, 
-    setEmployeeInactive
+    setEmployeeInactive,
+    completeExistingUserProfile
 } from "../controllers/employeeController.js";
 import { authN, isAdmin, isAdminOrEmployee } from "../middlewares/auth.js";
 import {checkPermission} from '../middlewares/permission.middleware.js'
@@ -25,6 +26,12 @@ router.get('/employee/:id', authN, isAdminOrEmployee, (req, res, next) => {
     }
     next();
 }, getEmployee);
+
+// complete employee profile in case of google login
+router.put('/complete-profile', authN, completeExistingUserProfile);
+
+
+
 
 // Employee can view all employees (but with limited info)
 router.get('/employees', authN, isAdminOrEmployee, getAllEmployees);

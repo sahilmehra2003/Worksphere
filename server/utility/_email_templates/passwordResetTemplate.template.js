@@ -6,8 +6,9 @@ const logoPath = process.env.MAILTRAP_LOGO_URL || 'fallback url';
 export const resetPasswordTemplate = (name, resetUrl) => {
   const containerStyle = "max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; font-family: Arial, sans-serif; line-height: 1.6; background-color: #ffffff;";
   const headerStyle = "text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 15px; margin-bottom: 20px;";
-  const logoStyle = "max-width: 250px; height:auto; margin-bottom: 10px; filter:invert(1) hue-rotate(180deg);";
+  
   const contentStyle = "margin-bottom: 20px; color: #333;";
+  const logoStyle = "max-width: 250px; height:auto; margin-bottom: 10px; filter:invert(1) hue-rotate(180deg);";
   const buttonWrapperStyle = "text-align: center; margin: 25px 0;";
 
   const buttonStyle = "background-color: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;";

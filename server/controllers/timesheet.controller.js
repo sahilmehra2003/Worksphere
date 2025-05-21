@@ -1,24 +1,24 @@
 import Timesheet from '../models/timesheet.model.js';
-import TimesheetEntry from '../models/timeSheetEntry.model.js'; 
+import TimesheetEntry from '../models/timeSheetEntry.model.js';
 import Employee from '../models/employeeSchema.js';
-import Project from '../models/projectSchema.js'; 
-import Client from '../models/clientSchema.js';   
-import Task from '../models/Task.model.js';    
+import Project from '../models/projectSchema.js';
+import Client from '../models/clientSchema.js';
+import Task from '../models/Task.model.js';
 import mongoose from 'mongoose';
-import { getStartOfWeek } from '../utility/getStartOfWeek.utility.js'; 
+import { getStartOfWeek } from '../utility/getStartOfWeek.utility.js';
 
 
 export const addTimesheetEntry = async (req, res) => {
     try {
         const employeeId = req.user._id;
- 
+
         const {
             date,
             hours,
             description,
-            project, 
-            client,  
-            task    
+            project,
+            client,
+            task
         } = req.body;
 
         // 1. --- Basic Input Validation ---
@@ -28,14 +28,14 @@ export const addTimesheetEntry = async (req, res) => {
 
         const entryDate = new Date(date);
         if (isNaN(entryDate.getTime())) {
-             return res.status(400).json({ success: false, message: 'Invalid date format provided.' });
+            return res.status(400).json({ success: false, message: 'Invalid date format provided.' });
         }
         const entryDateUTCStart = new Date(Date.UTC(entryDate.getUTCFullYear(), entryDate.getUTCMonth(), entryDate.getUTCDate()));
 
         const parsedHours = parseFloat(hours);
 
         if (isNaN(parsedHours) || parsedHours < 0.1 || parsedHours > 24) {
-             return res.status(400).json({ success: false, message: 'Invalid hours value. Must be between 0.1 and 24.' });
+            return res.status(400).json({ success: false, message: 'Invalid hours value. Must be between 0.1 and 24.' });
         }
 
         if (project && !mongoose.Types.ObjectId.isValid(project)) return res.status(400).json({ success: false, message: 'Invalid Project ID format.' });
@@ -51,30 +51,30 @@ export const addTimesheetEntry = async (req, res) => {
 
             },
             {
-                $setOnInsert: { 
+                $setOnInsert: {
                     employee: employeeId,
                     weekStartDate: weekStartDate,
                     status: 'Draft',
-                    totalHours: 0, 
+                    totalHours: 0,
                 }
             },
             {
                 new: true,
                 upsert: true,
                 setDefaultsOnInsert: true,
-                sort: { _id: 1 } 
+                sort: { _id: 1 }
             }
         );
 
         if (parentTimesheet.status !== 'Draft') {
-             return res.status(400).json({ success: false, message: `Timesheet for week starting ${weekStartDate.toISOString().split('T')[0]} is already '${parentTimesheet.status}' and cannot be modified.` });
+            return res.status(400).json({ success: false, message: `Timesheet for week starting ${weekStartDate.toISOString().split('T')[0]} is already '${parentTimesheet.status}' and cannot be modified.` });
         }
 
         const weekEndDate = new Date(weekStartDate);
         weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6); // Sunday end of the week
         weekEndDate.setUTCHours(23, 59, 59, 999); // End of Sunday
         if (entryDateUTCStart < weekStartDate || entryDateUTCStart > weekEndDate) {
-             return res.status(400).json({ success: false, message: `Entry date ${entryDateUTCStart.toISOString().split('T')[0]} is outside the timesheet week (${weekStartDate.toISOString().split('T')[0]} to ${weekEndDate.toISOString().split('T')[0]}).` });
+            return res.status(400).json({ success: false, message: `Entry date ${entryDateUTCStart.toISOString().split('T')[0]} is outside the timesheet week (${weekStartDate.toISOString().split('T')[0]} to ${weekEndDate.toISOString().split('T')[0]}).` });
         }
 
         const session = await mongoose.startSession();
@@ -83,43 +83,43 @@ export const addTimesheetEntry = async (req, res) => {
             session.startTransaction();
 
             [newEntry] = await TimesheetEntry.create(
-                [{ 
+                [{
                     timesheet: parentTimesheet._id,
-                    employee: employeeId, 
-                    date: entryDateUTCStart, 
+                    employee: employeeId,
+                    date: entryDateUTCStart,
                     hours: parsedHours,
                     description,
                     project: project || null,
                     client: client || null,
                     task: task || null
                 }],
-                { session } 
+                { session }
             );
 
             const updatedTimesheet = await Timesheet.findByIdAndUpdate(
                 parentTimesheet._id,
                 { $inc: { totalHours: newEntry.hours } },
-                { new: true, session } 
+                { new: true, session }
             );
 
             if (!updatedTimesheet) {
-                 throw new Error(`Failed to update total hours for timesheet ${parentTimesheet._id}`);
+                throw new Error(`Failed to update total hours for timesheet ${parentTimesheet._id}`);
             }
 
-            await session.commitTransaction(); 
+            await session.commitTransaction();
             console.log(`Added entry ${newEntry._id}, updated timesheet ${parentTimesheet._id} total hours to ${updatedTimesheet.totalHours}`);
 
         } catch (error) {
-             await session.abortTransaction(); 
-             throw error; 
+            await session.abortTransaction();
+            throw error;
         } finally {
-             session.endSession();
+            session.endSession();
         }
 
         res.status(201).json({
             success: true,
             message: 'Timesheet entry added successfully.',
-            data: newEntry 
+            data: newEntry
         });
 
     } catch (error) {
@@ -206,10 +206,10 @@ export const updateTimesheetEntry = async (req, res) => {
             throw new Error('Timesheet entry not found.'); // Will be caught and rolled back
         }
         if (!entry.employee.equals(employeeId)) {
-             throw new Error('Forbidden: Cannot update entry belonging to another employee.'); // Use custom error or status code
+            throw new Error('Forbidden: Cannot update entry belonging to another employee.'); // Use custom error or status code
         }
         if (entry.timesheet?.status !== 'Draft') {
-             throw new Error(`Cannot update entry: Timesheet is already ${entry.timesheet?.status}.`);
+            throw new Error(`Cannot update entry: Timesheet is already ${entry.timesheet?.status}.`);
         }
 
         // --- Validate incoming data ---
@@ -218,7 +218,7 @@ export const updateTimesheetEntry = async (req, res) => {
         if (updateData.hasOwnProperty('hours')) {
             newHours = parseFloat(updateData.hours);
             if (isNaN(newHours) || newHours < 0.1 || newHours > 24) {
-                 throw new Error('Invalid hours value. Must be between 0.1 and 24.');
+                throw new Error('Invalid hours value. Must be between 0.1 and 24.');
             }
         }
         if (updateData.hasOwnProperty('date')) {
@@ -227,13 +227,13 @@ export const updateTimesheetEntry = async (req, res) => {
             const newDateUTCStart = new Date(Date.UTC(newDate.getUTCFullYear(), newDate.getUTCMonth(), newDate.getUTCDate()));
 
             // Validate date is within the correct week
-             const weekStartDate = entry.timesheet.weekStartDate;
-             const weekEndDate = new Date(weekStartDate);
-             weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
-             weekEndDate.setUTCHours(23, 59, 59, 999);
-             if (newDateUTCStart < weekStartDate || newDateUTCStart > weekEndDate) {
-                  throw new Error(`New entry date is outside the timesheet week.`);
-             }
+            const weekStartDate = entry.timesheet.weekStartDate;
+            const weekEndDate = new Date(weekStartDate);
+            weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
+            weekEndDate.setUTCHours(23, 59, 59, 999);
+            if (newDateUTCStart < weekStartDate || newDateUTCStart > weekEndDate) {
+                throw new Error(`New entry date is outside the timesheet week.`);
+            }
             updateData.date = newDateUTCStart; // Standardize date
         }
         // Validate optional refs if provided...
@@ -244,12 +244,12 @@ export const updateTimesheetEntry = async (req, res) => {
         const finalUpdateData = {};
         allowedFields.forEach(field => {
             if (updateData.hasOwnProperty(field)) {
-                 finalUpdateData[field] = updateData[field];
+                finalUpdateData[field] = updateData[field];
             }
         });
 
         if (Object.keys(finalUpdateData).length === 0) {
-             throw new Error("No valid fields provided for update.");
+            throw new Error("No valid fields provided for update.");
         }
 
         const updatedEntry = await TimesheetEntry.findByIdAndUpdate(
@@ -261,13 +261,13 @@ export const updateTimesheetEntry = async (req, res) => {
         // --- Update Parent Timesheet Total Hours ---
         const hourDifference = updatedEntry.hours - oldHours;
         if (hourDifference !== 0) {
-             const updatedTimesheet = await Timesheet.findByIdAndUpdate(
-                 entry.timesheet._id,
-                 { $inc: { totalHours: hourDifference } },
-                 { new: true, session } // Use session
-             );
-              if (!updatedTimesheet) throw new Error('Failed to update parent timesheet total hours.');
-              console.log(`Updated timesheet ${entry.timesheet._id} total hours by ${hourDifference} to ${updatedTimesheet.totalHours}`);
+            const updatedTimesheet = await Timesheet.findByIdAndUpdate(
+                entry.timesheet._id,
+                { $inc: { totalHours: hourDifference } },
+                { new: true, session } // Use session
+            );
+            if (!updatedTimesheet) throw new Error('Failed to update parent timesheet total hours.');
+            console.log(`Updated timesheet ${entry.timesheet._id} total hours by ${hourDifference} to ${updatedTimesheet.totalHours}`);
         }
 
         await session.commitTransaction(); // Commit transaction
@@ -285,7 +285,7 @@ export const updateTimesheetEntry = async (req, res) => {
         console.error("Error updating timesheet entry:", error);
         // Send specific error messages caught above
         if (error.message.startsWith('Forbidden') || error.message.startsWith('Cannot update entry') || error.message.startsWith('Timesheet entry not found') || error.message.startsWith('Invalid') || error.message.startsWith('New entry date')) {
-             return res.status(400).json({ success: false, message: error.message });
+            return res.status(400).json({ success: false, message: error.message });
         }
         res.status(500).json({ success: false, message: 'Server error updating entry.', error: error.message });
     }
@@ -296,7 +296,7 @@ export const deleteTimesheetEntry = async (req, res) => {
     const { entryId } = req.params;
     const employeeId = req.user._id;
 
-     if (!mongoose.Types.ObjectId.isValid(entryId)) {
+    if (!mongoose.Types.ObjectId.isValid(entryId)) {
         return res.status(400).json({ success: false, message: 'Invalid Timesheet Entry ID format.' });
     }
 
@@ -314,10 +314,10 @@ export const deleteTimesheetEntry = async (req, res) => {
             throw new Error('Timesheet entry not found.');
         }
         if (!entry.employee.equals(employeeId)) {
-             throw new Error('Forbidden: Cannot delete entry belonging to another employee.');
+            throw new Error('Forbidden: Cannot delete entry belonging to another employee.');
         }
         if (entry.timesheet?.status !== 'Draft') {
-             throw new Error(`Cannot delete entry: Timesheet is already ${entry.timesheet?.status}.`);
+            throw new Error(`Cannot delete entry: Timesheet is already ${entry.timesheet?.status}.`);
         }
 
         const hoursToDelete = entry.hours; // Get hours before deleting
@@ -333,7 +333,7 @@ export const deleteTimesheetEntry = async (req, res) => {
             { new: true, session }
         );
         if (!updatedTimesheet) throw new Error('Failed to update parent timesheet total hours after deleting entry.');
-         console.log(`Deleted entry ${entryId}, updated timesheet ${parentTimesheetId} total hours to ${updatedTimesheet.totalHours}`);
+        console.log(`Deleted entry ${entryId}, updated timesheet ${parentTimesheetId} total hours to ${updatedTimesheet.totalHours}`);
 
 
         await session.commitTransaction(); // Commit transaction
@@ -346,7 +346,7 @@ export const deleteTimesheetEntry = async (req, res) => {
         session.endSession();
         console.error("Error deleting timesheet entry:", error);
         if (error.message.startsWith('Forbidden') || error.message.startsWith('Cannot delete entry') || error.message.startsWith('Timesheet entry not found')) {
-             return res.status(400).json({ success: false, message: error.message });
+            return res.status(400).json({ success: false, message: error.message });
         }
         res.status(500).json({ success: false, message: 'Server error deleting entry.', error: error.message });
     }
@@ -473,7 +473,7 @@ export const rejectTimesheet = async (req, res) => {
         }
         // Schema requires rejectionReason if status is 'Rejected'
         if (!rejectionReason) {
-             return res.status(400).json({ success: false, message: 'Rejection reason is required when rejecting a timesheet.' });
+            return res.status(400).json({ success: false, message: 'Rejection reason is required when rejecting a timesheet.' });
         }
 
 
@@ -517,8 +517,8 @@ export const rejectTimesheet = async (req, res) => {
 
     } catch (error) {
         console.error("Error rejecting timesheet:", error);
-         if (error.name === 'ValidationError') { // Catch validation errors (e.g., missing rejectionReason if check failed somehow)
-             return res.status(400).json({ success: false, message: 'Validation Error', error: error.message });
+        if (error.name === 'ValidationError') { // Catch validation errors (e.g., missing rejectionReason if check failed somehow)
+            return res.status(400).json({ success: false, message: 'Validation Error', error: error.message });
         }
         res.status(500).json({ success: false, message: 'Server error rejecting timesheet.', error: error.message });
     }
@@ -539,7 +539,7 @@ export const getSubmittedTimesheets = async (req, res) => {
             }
             query.employee = { $in: teamMemberIds };
         }
-         // Add other filters from req.query if needed (e.g., specific employee, date range)
+        // Add other filters from req.query if needed (e.g., specific employee, date range)
 
         // --- Pagination ---
         const page = parseInt(req.query.page) || 1;
@@ -574,7 +574,7 @@ export const getSubmittedTimesheets = async (req, res) => {
 
 
 export const getAllTimesheets = async (req, res) => {
-     try {
+    try {
         // Base query
         const query = {}; // Add isDeleted: false if soft delete is implemented later
 
@@ -586,12 +586,12 @@ export const getAllTimesheets = async (req, res) => {
             query.status = req.query.status;
         }
         if (req.query.weekStartDate) { // Expecting YYYY-MM-DD
-             try {
-                 const start = getStartOfWeek(new Date(req.query.weekStartDate), 1);
-                 if (!isNaN(start.getTime())) {
-                     query.weekStartDate = start;
-                 }
-             } catch (e) { console.warn("Invalid weekStartDate filter format"); }
+            try {
+                const start = getStartOfWeek(new Date(req.query.weekStartDate), 1);
+                if (!isNaN(start.getTime())) {
+                    query.weekStartDate = start;
+                }
+            } catch (e) { console.warn("Invalid weekStartDate filter format"); }
         }
         // Add date range filters for weekStartDate if needed
 
@@ -656,8 +656,8 @@ export const getTimesheetById = async (req, res) => {
         const isOwnerManager = timesheet.employee?.manager && requestingUser._id.equals(timesheet.employee.manager);
 
         if (!isAdminOrHR && !isOwner && !isOwnerManager) {
-             // If user is not Admin/HR, not the owner, and not the owner's manager, deny access
-             return res.status(403).json({ success: false, message: 'Access denied: You are not authorized to view this timesheet.' });
+            // If user is not Admin/HR, not the owner, and not the owner's manager, deny access
+            return res.status(403).json({ success: false, message: 'Access denied: You are not authorized to view this timesheet.' });
         }
         // --- End Authorization Check ---
 
@@ -697,21 +697,21 @@ export const getMyTimesheets = async (req, res) => {
         if (req.query.status) {
             const statuses = req.query.status.split(',').filter(s => ['Draft', 'Submitted', 'Approved', 'Rejected'].includes(s));
             if (statuses.length > 0) {
-                 query.status = { $in: statuses };
+                query.status = { $in: statuses };
             }
         }
         // Filter by week (find timesheet for week containing the given date)
         if (req.query.weekStartDate) { // Expecting YYYY-MM-DD
-             try {
-                 const date = new Date(req.query.weekStartDate);
-                 if (!isNaN(date.getTime())) {
-                     // Use UTC components to determine week start consistently
-                     const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-                     query.weekStartDate = getStartOfWeek(utcDate, 1); // Assuming Monday start helper
-                 }
-             } catch (e) { console.warn("Invalid weekStartDate filter format"); }
+            try {
+                const date = new Date(req.query.weekStartDate);
+                if (!isNaN(date.getTime())) {
+                    // Use UTC components to determine week start consistently
+                    const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+                    query.weekStartDate = getStartOfWeek(utcDate, 1); // Assuming Monday start helper
+                }
+            } catch (e) { console.warn("Invalid weekStartDate filter format"); }
         }
-         // Add more filters? e.g., date range for weekStartDate?
+        // Add more filters? e.g., date range for weekStartDate?
 
         // --- Pagination ---
         const page = parseInt(req.query.page) || 1;
@@ -732,6 +732,10 @@ export const getMyTimesheets = async (req, res) => {
         // Get total count matching the query for pagination info
         const totalTimesheets = await Timesheet.countDocuments(query);
 
+        // Check if user is Admin/HR and has no timesheets
+        const isAdminOrHR = ['Admin', 'HR'].includes(req.user.role);
+        const shouldCreateTimesheet = isAdminOrHR && totalTimesheets === 0;
+
         // --- Response ---
         res.status(200).json({
             success: true,
@@ -741,7 +745,9 @@ export const getMyTimesheets = async (req, res) => {
                 totalPages: Math.ceil(totalTimesheets / limit),
                 totalRecords: totalTimesheets
             },
-            data: timesheets // Array of timesheet header documents
+            data: timesheets, // Array of timesheet header documents
+            shouldCreateTimesheet, // Flag indicating if a new timesheet should be created
+            message: shouldCreateTimesheet ? 'No timesheets found. Please create a new timesheet.' : undefined
         });
 
     } catch (error) {

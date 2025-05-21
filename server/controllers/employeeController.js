@@ -227,6 +227,74 @@ export const updateEmployee = async (req, res) => {
   }
 };
 
+export const completeExistingUserProfile = async (req, res) => {
+  try {
+    const { name, position, country, state, city, phoneNumber } = req.body;
+    const userId = req.user._id; // Get user ID from authN middleware
+
+    // Validate required fields (email is already part of req.user, name might be too)
+    // Name might be updated, but email should typically not change here or be validated against req.user.email
+    if (!name || !position || !phoneNumber || !country || !state || !city) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: name, position, country, state, city, and phoneNumber are required.'
+      });
+    }
+
+    const employeeToUpdate = await Employee.findById(userId);
+
+    if (!employeeToUpdate) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found. Cannot complete profile.'
+      });
+    }
+
+    // Optionally check if profile is already complete
+    if (employeeToUpdate.isProfileComplete) {
+      // You might allow updates even if complete, or return a specific message
+      console.log(`User ${employeeToUpdate.email} profile is already complete but attempting update.`);
+    }
+
+    // Update the employee's profile
+    employeeToUpdate.name = name; // Allow name update if desired
+    employeeToUpdate.position = position;
+    employeeToUpdate.country = country;
+    employeeToUpdate.state = state;
+    employeeToUpdate.city = city;
+    employeeToUpdate.phoneNumber = phoneNumber;
+    employeeToUpdate.isProfileComplete = true; // Mark profile as complete
+    employeeToUpdate.updatedAt = new Date();
+    // employeeToUpdate.role = employeeToUpdate.role || 'Employee'; // Role should ideally be set at signup or by admin
+    // employeeToUpdate.employmentStatus = employeeToUpdate.employmentStatus || 'working'; // Status might be managed elsewhere
+
+    const updatedEmployee = await employeeToUpdate.save();
+
+    // Remove sensitive data before sending back
+    updatedEmployee.password = undefined;
+    updatedEmployee.refreshToken = undefined;
+    updatedEmployee.refreshTokenExpiry = undefined;
+
+
+    res.status(200).json({ // 200 OK for update
+      success: true,
+      message: 'Profile completed/updated successfully',
+      user: updatedEmployee // Send back the updated user object
+    });
+
+  } catch (err) {
+    console.error('Error in completeExistingUserProfile:', err);
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message, errors: err.errors });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while completing profile.',
+      error: err.message
+    });
+  }
+};
+
 export const updatePassword = async (req, res) => {
   try {
       const { currentPassword, newPassword, confirmPassword } = req.body;

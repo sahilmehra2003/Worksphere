@@ -1,261 +1,214 @@
-// src/pages/UserLeavePage.jsx (Example Path)
-
+// src/Pages/Leave Management/UserLeavePage.jsx
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import {
-    Box, Typography, useTheme, CircularProgress, Alert, Paper, Grid,
-    // Ensure all needed MUI components are imported
-    Dialog, DialogActions, DialogContent, DialogTitle, TextField, Select,
-    MenuItem, FormControl, InputLabel, Button, Stack, FormHelperText
+    Box, Typography, useTheme, CircularProgress, Alert, Paper, Grid, Button
 } from '@mui/material';
-// Import the sub-components
-import LeaveBalanceDisplay from '../../components/Leave/LeaveBalanceDisplay'; // Adjust path
-import LeaveHistoryTable from '../../components/Leave/LeaveHistoryTable'; // Adjust path
-import LeaveApplyModal from '../../components/Leave/LeaveApplyModal'; // Adjust path
+import { useDispatch, useSelector } from 'react-redux';
+import AddIcon from '@mui/icons-material/Add'; // For apply leave button
 
-import axiosInstance from '../../utils/apis'; // Adjust path
-// *** Import helper functions from utility file ***
-import { isNonWorkingDay, calculateWorkingDaysFrontend, isSameDate } from '../../utils/dateUtils'; // Adjust path
+import LeaveBalanceDisplay from '../../components/Leave/LeaveBalanceDisplay';
+import LeaveHistoryTable from '../../components/Leave/LeaveHistoryTable';
+import LeaveApplyModal from '../../components/Leave/LeaveApplyModal';
 
+import {
+    fetchMyLeaveBalance,
+    fetchMyLeaveHistory,
+    fetchCompanyCalendarForCountry, // Use thunk from leaveSlice
+    applyForLeave,
+    cancelLeaveRequest, // Renamed in slice for clarity
+    clearLeaveOperationStatus,
+} from '../../redux/Slices/leaveSlice'; // Adjust path
 
+import { isNonWorkingDay, calculateWorkingDaysFrontend, isSameDate } from '../../utils/dateUtils';
+import { toast } from 'react-hot-toast';
+import FlexBetween from '../../components/FlexBetween';
 const UserLeavePage = () => {
     const theme = useTheme();
-    // --- Placeholder for Auth Context ---
-    // !!! REPLACE THIS with your actual user data retrieval mechanism !!!
-    const user = JSON.parse(localStorage.getItem('user'))
-    console.log(user);
-    const employeeId = user?._id; // Make sure this is valid!
-    const userCountry = user?.country; // Make sure this is valid!
-    // --- End Placeholder ---
-
-    const currentYear = new Date().getFullYear();
-    // Define validRange for ONLY the current year if you want to restrict navigation (optional now)
-    // const validRange = { start: `${currentYear}-01-01`, end: `${currentYear + 1}-01-01` };
+    const dispatch = useDispatch();
     const calendarRef = useRef(null);
 
-    // === State Variables ===
-    const [leaveBalance, setLeaveBalance] = useState(null);
-    const [leaveHistory, setLeaveHistory] = useState([]);
-    const [companyCalendar, setCompanyCalendar] = useState({ holidays: [], weekends: [0, 6] }); // Default weekends
+    // --- Selectors ---
+    const { user: authUser } = useSelector((state) => state.auth);
+    const {
+        leaveBalance,
+        leaveHistory,
+        companyCalendar,
+        isLoadingBalance,
+        isLoadingHistory,
+        isLoadingCalendar,
+        isApplyingLeave,
+        isCancellingLeave,
+        cancellingLeaveId,
+        errorBalance,
+        errorHistory,
+        errorCalendar,
+        applyLeaveSuccess,
+        cancelLeaveSuccess,
+        errorApplyingLeave, // For modal to potentially consume
+        errorCancellingLeave, // For modal or general display
+    } = useSelector((state) => state.leave);
 
-    // Loading/Error States
-    const [isLoadingBalance, setIsLoadingBalance] = useState(false);
-    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-    const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
-    const [errorBalance, setErrorBalance] = useState('');
-    const [errorHistory, setErrorHistory] = useState('');
-    const [errorCalendar, setErrorCalendar] = useState('');
+    const employeeId = authUser?._id;
+    const userCountry = authUser?.country; // Example: 'IN'
 
-    // State for the Country dropdown (if needed, otherwise uses user.country)
-    // const [availableCountries, setAvailableCountries] = useState([]);
-    const [selectedCountry, setSelectedCountry] = useState(userCountry || 'IN'); // *** Ensure selectedCountry state exists if you use a dropdown ***
-
-    // Combined Calendar Events State
-    const [calendarEvents, setCalendarEvents] = useState([]);
-
-    // Application Modal State
+    // --- Local UI State for Modal ---
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-    const [selectionInfo, setSelectionInfo] = useState(null); // Holds { startStr, endStr, start, end }
+    const [selectionInfo, setSelectionInfo] = useState(null); // For FullCalendar date selection
 
-    // Leave Cancellation State
-    const [cancellingId, setCancellingId] = useState(null);
-
-
-    // === Data Fetching Functions (with full implementation) ===
-    const fetchBalance = useCallback(async () => {
-        if (!employeeId) return;
-        setIsLoadingBalance(true); setErrorBalance('');
-        try {
-            // Using route confirmed by user (adjust if needed)
-            const res = await axiosInstance.get(`http://localhost:4000/leaveSystem/balance`);
-            setLeaveBalance(res.data);
-        } catch (error) {
-            console.error("Error fetching leave balance:", error);
-            setErrorBalance(`Failed to load balance: ${error?.response?.data?.message || error.message}`);
-        } finally {
-            setIsLoadingBalance(false);
-        }
-    }, [employeeId]);
-
-    const fetchHistory = useCallback(async () => {
-        if (!employeeId) return;
-        setIsLoadingHistory(true); setErrorHistory('');
-        try {
-            // Using route confirmed by user (adjust if needed)
-            const res = await axiosInstance.get(`http://localhost:4000/leaveSystem/leaves`);
-            setLeaveHistory(res.data.leaves || []); // Assuming pagination structure
-        } catch (error) {
-             console.error("Error fetching leave history:", error);
-            setErrorHistory(`Failed to load history: ${error?.response?.data?.message || error.message}`);
-        } finally {
-            setIsLoadingHistory(false);
-        }
-    }, [employeeId]);
-
-    const fetchCompanyCalendar = useCallback(async () => {
-        // Use user's country directly
-        if (!userCountry) {
-            setErrorCalendar("User country not available to fetch calendar.");
-            return;
-        };
-        setIsLoadingCalendar(true); setErrorCalendar('');
-        try {
-            // Using route confirmed by user
-            const res = await axiosInstance.get(`http://localhost:4000/calendar/fetchcountrycalender/${userCountry}`);
-            setCompanyCalendar({
-                holidays: res.data?.holidays || [],
-                weekends: res.data?.weekends || [0, 6] // Sensible default
-            });
-        } catch (error) {
-             console.error("Error fetching company calendar:", error);
-             setErrorCalendar(`Failed to load company calendar (${userCountry}): ${error?.response?.data?.message || error.message}`);
-             setCompanyCalendar({ holidays: [], weekends: [0, 6] }); // Set defaults on error
-        } finally {
-            setIsLoadingCalendar(false);
-        }
-    }, [userCountry]); // Depends only on user's country
-
-    // === Initial Data Fetch ===
+    // --- Initial Data Fetch ---
     useEffect(() => {
-        // Ensure we have the necessary user info before fetching
         if (employeeId) {
-            fetchBalance();
-            fetchHistory();
+            dispatch(fetchMyLeaveBalance());
+            dispatch(fetchMyLeaveHistory({ page: 1, limit: 1000 })); // Fetch all history for now, or implement pagination
         }
-        if (userCountry) {
-            fetchCompanyCalendar();
+        if (userCountry && !companyCalendar.countryCode) { // Fetch only if not already fetched or country changed
+            dispatch(fetchCompanyCalendarForCountry(userCountry));
         }
-        // These functions have their own dependency arrays (usually employeeId/userCountry)
-        // This effect should run when employeeId or userCountry potentially changes (e.g., on login)
-    }, [employeeId, userCountry, fetchBalance, fetchHistory, fetchCompanyCalendar]);
+    }, [dispatch, employeeId, userCountry, companyCalendar.countryCode]);
 
-    // === Combine Holidays and Leaves for Calendar Events ===
-     useEffect(() => {
-         // Ensure companyCalendar and leaveHistory are arrays before mapping
-         const holidays = companyCalendar?.holidays || [];
-         const history = leaveHistory || [];
 
-         const holidayEvents = holidays.map(h => ({
-             // id: `holiday-${h._id}`, // Unique ID if needed
-             title: h.name, start: h.date, allDay: true, display: 'background',
-             color: theme.palette.action.selected,
-             extendedProps: { type: 'holiday' }
-         }));
+    // Effect for handling global operation success/error feedback
+    useEffect(() => {
+        if (applyLeaveSuccess) {
+            toast.success('Leave application submitted successfully!');
+            setIsApplyModalOpen(false); // Close modal on success
+            dispatch(clearLeaveOperationStatus());
+        }
+        if (cancelLeaveSuccess) {
+            toast.success('Leave request cancelled successfully!');
+            dispatch(clearLeaveOperationStatus());
+        }
+        // Errors from apply/cancel are now in errorApplyingLeave / errorCancellingLeave
+        // The modal can display errorApplyingLeave directly.
+        // General page errors (errorBalance, errorHistory, errorCalendar) can be shown separately.
+        if (errorApplyingLeave) {
+            toast.error(`Apply Failed: ${errorApplyingLeave}`);
+            dispatch(clearLeaveOperationStatus());
+        }
+        if (errorCancellingLeave) {
+            toast.error(`Cancel Failed: ${errorCancellingLeave}`);
+            dispatch(clearLeaveOperationStatus());
+        }
 
-         const userLeaveEvents = history
-             .filter(l => ['Pending', 'Approved'].includes(l.status))
-             .map(l => ({
-                 id: l._id, title: `${l.leaveType} (${l.status})`, start: l.startDate,
-                 // Calculate exclusive end date for FullCalendar rendering
-                 end: l.endDate ? new Date(new Date(l.endDate).setDate(new Date(l.endDate).getDate() + 1)).toISOString().split('T')[0] : l.startDate,
-                 allDay: true,
-                 color: l.status === 'Approved' ? theme.palette.primary.light : theme.palette.warning.light,
-                 borderColor: l.status === 'Approved' ? theme.palette.primary.main : theme.palette.warning.main,
-                 textColor: theme.palette.getContrastText(l.status === 'Approved' ? theme.palette.primary.light : theme.palette.warning.light),
-                 extendedProps: { type: 'user-leave', status: l.status }
-             }));
+    }, [applyLeaveSuccess, cancelLeaveSuccess, errorApplyingLeave, errorCancellingLeave, dispatch]);
 
-         setCalendarEvents([...holidayEvents, ...userLeaveEvents]);
-     }, [companyCalendar, leaveHistory, theme]); // Re-run when source data changes
 
-    // === Calendar Interaction Handlers ===
+    const calendarEvents = useMemo(() => {
+        const holidays = companyCalendar?.holidays || [];
+        const history = leaveHistory || [];
+
+        const holidayEvents = holidays.map(h => ({
+            id: `holiday-${h._id || h.date}`,
+            title: h.name, start: h.date, allDay: true, display: 'background',
+            color: theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[300],
+            textColor: theme.palette.text.secondary,
+            extendedProps: { type: 'holiday', description: h.description }
+        }));
+
+        const userLeaveEvents = history
+            .filter(l => ['Pending', 'Approved'].includes(l.status))
+            .map(l => ({
+                id: l._id, title: `${l.leaveType} (${l.status})`, start: l.startDate,
+                end: l.endDate ? new Date(new Date(l.endDate).setDate(new Date(l.endDate).getDate() + 1)).toISOString().split('T')[0] : l.startDate,
+                allDay: true,
+                color: l.status === 'Approved' ? theme.palette.success.light : theme.palette.warning.light,
+                borderColor: l.status === 'Approved' ? theme.palette.success.main : theme.palette.warning.main,
+                textColor: theme.palette.getContrastText(l.status === 'Approved' ? theme.palette.success.light : theme.palette.warning.light),
+                extendedProps: { type: 'user-leave', status: l.status }
+            }));
+        return [...holidayEvents, ...userLeaveEvents];
+    }, [companyCalendar, leaveHistory, theme]);
+
     const handleDateSelect = useCallback((selectInfo) => {
         const start = selectInfo.start;
         let inclusiveEndDate = new Date(selectInfo.end);
-        // FullCalendar's 'end' in selection is exclusive, so subtract one day for inclusive range
         inclusiveEndDate.setDate(inclusiveEndDate.getDate() - 1);
 
-        // Validate start/end are not non-working days
-        if (isNonWorkingDay(start, companyCalendar.weekends, companyCalendar.holidays)) {
-            alert("Leave cannot start on a weekend or public holiday.");
-            selectInfo.view.calendar.unselect(); // Clear selection visually
-            return;
+        const weekends = companyCalendar?.weekends || [];
+        const holidays = companyCalendar?.holidays || [];
+
+        if (isNonWorkingDay(start, weekends, holidays)) {
+            toast.error("Leave cannot start on a weekend or public holiday.");
+            selectInfo.view.calendar.unselect(); return;
         }
-        if (isNonWorkingDay(inclusiveEndDate, companyCalendar.weekends, companyCalendar.holidays)) {
-            alert("Leave cannot end on a weekend or public holiday.");
-             selectInfo.view.calendar.unselect();
-            return;
+        if (isNonWorkingDay(inclusiveEndDate, weekends, holidays)) {
+            toast.error("Leave cannot end on a weekend or public holiday.");
+            selectInfo.view.calendar.unselect(); return;
         }
-        // Validate single day selection is not non-working day
-        if(isSameDate(start, inclusiveEndDate) && isNonWorkingDay(start, companyCalendar.weekends, companyCalendar.holidays)){
-             alert("Cannot select a single non-working day for leave.");
-              selectInfo.view.calendar.unselect();
-            return;
+        if (isSameDate(start, inclusiveEndDate) && isNonWorkingDay(start, weekends, holidays)) {
+            toast.error("Cannot select a single non-working day for leave.");
+            selectInfo.view.calendar.unselect(); return;
         }
-        // Validate entire range has at least one working day
-        const days = calculateWorkingDaysFrontend(start, inclusiveEndDate, companyCalendar.weekends, companyCalendar.holidays);
+        const days = calculateWorkingDaysFrontend(start, inclusiveEndDate, weekends, holidays);
         if (days <= 0) {
-            alert("Selected range must contain at least one working day.");
-            selectInfo.view.calendar.unselect();
-            return;
+            toast.error("Selected range must contain at least one working day.");
+            selectInfo.view.calendar.unselect(); return;
         }
 
-        setSelectionInfo(selectInfo); // Store the raw selectInfo
+        setSelectionInfo(selectInfo);
         setIsApplyModalOpen(true);
     }, [companyCalendar]);
 
-    // --- Define handleDayCellDidMount within the component ---
     const handleDayCellDidMount = useCallback((arg) => {
         const dayOfWeek = arg.date.getDay();
         const weekends = companyCalendar?.weekends || [];
         if (weekends.includes(dayOfWeek)) {
-             arg.el.style.backgroundColor = theme.palette.action.hover;
+            arg.el.style.backgroundColor = theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : theme.palette.action.hover;
         }
-        // Optionally, visually indicate holidays differently if not using background events
-        // const holidays = companyCalendar?.holidays || [];
-        // if (isNonWorkingDay(arg.date, [], holidays)) { // Check only holidays
-        //     arg.el.style.border = `1px dashed ${theme.palette.error.light}`;
-        // }
-     }, [companyCalendar?.weekends, companyCalendar?.holidays, theme.palette.action.hover]); // Update dependencies
+    }, [companyCalendar?.weekends, theme.palette.mode, theme.palette.action.hover]);
 
+    const handleApplyLeaveSubmitThunk = useCallback(async (formData) => {
+        // This function is passed to the modal. It dispatches the Redux thunk.
+        // The modal's try/catch can handle UI updates during submission.
+        return dispatch(applyForLeave(formData)).unwrap(); // unwrap to allow modal to catch rejection
+    }, [dispatch]);
 
-    // === API Action Handlers ===
-    const handleApplyLeaveSubmit = useCallback(async (formData) => {
-        try {
-            // Using route confirmed by user
-            await axiosInstance.post(`http://localhost:4000/leaveSystem/apply`, formData);
-            setIsApplyModalOpen(false);
-            await fetchHistory();
-            await fetchBalance();
-            // Use a more subtle notification (Snackbar) in production
-            alert("Leave application submitted successfully!");
-        } catch (error) {
-            console.error("Error applying for leave:", error);
-            // Rethrow the error message for the modal to display
-            throw new Error(error?.response?.data?.message || error.message || "Failed to apply leave.");
-        }
-    }, [fetchHistory, fetchBalance]); // Dependencies
-
-    const handleCancelLeave = useCallback(async (leaveId) => {
-        if (!leaveId || cancellingId) return;
+    const handleCancelLeaveRequest = useCallback(async (leaveId) => {
+        if (!leaveId || isCancellingLeave) return; // Prevent multiple clicks if already cancelling
         if (!window.confirm("Are you sure you want to cancel this leave request?")) return;
-        setCancellingId(leaveId);
-        try {
-            // Using route confirmed by user (ensure method is PUT/PATCH/DELETE as per backend)
-            // Assuming PUT based on previous controller example structure
-             await axiosInstance.put(`http://localhost:4000/leaveSystem/leaves/${leaveId}/cancel`); // Adjust URL/method if needed
-            await fetchHistory();
-            await fetchBalance();
-            alert("Leave request cancelled."); // Use Snackbar
-        } catch (error) {
-            console.error(`Error cancelling leave ${leaveId}:`, error);
-            alert(`Failed to cancel leave. ${error?.response?.data?.message || error.message}`);
-        } finally {
-            setCancellingId(null);
-        }
-    }, [cancellingId, fetchHistory, fetchBalance]);
+        dispatch(cancelLeaveRequest(leaveId));
+    }, [dispatch, isCancellingLeave]);
 
+    if (!authUser) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+                <Typography>Authenticating user...</Typography>
+                <CircularProgress sx={{ ml: 2 }} />
+            </Box>
+        );
+    }
 
-    // === Render ===
+    const isLoadingAnyData = isLoadingBalance || isLoadingHistory || isLoadingCalendar;
+
     return (
         <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
-            <Typography variant="h4" gutterBottom component="h1">My Leave Dashboard</Typography>
+            <FlexBetween mb={3}>
+                <Typography variant="h4" gutterBottom component="h1" sx={{ color: theme.palette.text.primary }}>
+                    My Leave Dashboard
+                </Typography>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<AddIcon />}
+                    onClick={() => {
+                        if (calendarRef.current) { // Unselect any current calendar selection
+                            calendarRef.current.getApi().unselect();
+                        }
+                        setSelectionInfo(null); // Clear any previous selection info
+                        setIsApplyModalOpen(true);
+                    }}
+                    disabled={!companyCalendar.countryCode} // Disable if calendar data not loaded
+                >
+                    Apply for Leave
+                </Button>
+            </FlexBetween>
+
 
             <Grid container spacing={3}>
-                {/* Leave Balances */}
-                <Grid item xs={12} lg={4}> {/* Adjusted grid size */}
+                <Grid item xs={12} md={4}>
                     <LeaveBalanceDisplay
                         balance={leaveBalance}
                         isLoading={isLoadingBalance}
@@ -263,15 +216,15 @@ const UserLeavePage = () => {
                     />
                 </Grid>
 
-                {/* Calendar View */}
-                <Grid item xs={12} lg={8}> {/* Adjusted grid size */}
-                    <Paper elevation={2} sx={{ p: { xs: 1, sm: 2 }, /* Styles for FC internals */ }}>
-                        <Typography variant="h6" gutterBottom>Calendar (Select Dates to Apply)</Typography>
-                        {(isLoadingCalendar || isLoadingHistory || isLoadingBalance) && <CircularProgress size={20} sx={{ mb: 1 }} />}
-                        {errorCalendar && <Alert severity="warning" sx={{ mb: 1 }}>{errorCalendar}</Alert>}
+                <Grid item xs={12} md={8}>
+                    <Paper elevation={2} sx={{ p: { xs: 1, sm: 2 } }}>
+                        <Typography variant="h6" gutterBottom sx={{ color: theme.palette.text.primary }}>
+                            My Calendar (Select Dates to Apply or View Leaves)
+                        </Typography>
+                        {isLoadingCalendar && <CircularProgress size={20} sx={{ mb: 1 }} />}
+                        {errorCalendar && <Alert severity="warning" sx={{ mb: 1 }}>Company Calendar for {userCountry}: {errorCalendar}</Alert>}
                         <Box sx={{ position: 'relative', minHeight: '450px' }}>
-                             {/* Render calendar only when required data (weekends/holidays) is available */}
-                            {companyCalendar && (
+                            {(companyCalendar && companyCalendar.weekends && !isLoadingCalendar) ? (
                                 <FullCalendar
                                     ref={calendarRef}
                                     key={userCountry + JSON.stringify(companyCalendar.weekends)}
@@ -281,15 +234,11 @@ const UserLeavePage = () => {
                                     events={calendarEvents}
                                     selectable={true}
                                     selectMirror={true}
-                                    selectConstraint = {{ // Example: Prevent selecting non-working days directly (optional)
-                                        // dow: [1, 2, 3, 4, 5] // Allow Mon-Fri
-                                    }}
                                     selectAllow={(selectInfo) => {
-                                        // More fine-grained control: prevent selection ending on non-working day
                                         let end = new Date(selectInfo.end);
-                                        end.setDate(end.getDate() - 1); // Make inclusive
-                                        return !isNonWorkingDay(end, companyCalendar.weekends, companyCalendar.holidays);
-                                      }}
+                                        end.setDate(end.getDate() - 1);
+                                        return selectInfo.start && end && selectInfo.start <= end; // Basic check, more in handleDateSelect
+                                    }}
                                     selectOverlap={false}
                                     eventOverlap={false}
                                     headerToolbar={{
@@ -297,41 +246,42 @@ const UserLeavePage = () => {
                                         center: 'title',
                                         right: 'dayGridMonth'
                                     }}
-                                    // validRange={validRange} // Keep commented unless needed
-                                    dayCellDidMount={handleDayCellDidMount} // Use locally defined handler
+                                    dayCellDidMount={handleDayCellDidMount}
                                     select={handleDateSelect}
-                                    eventClick={null} // Keep event click disabled for now
-                                    // eventDidMount prop can be used for tooltips etc.
+                                    eventClick={null} // Not handling event clicks on calendar for now
                                 />
+                            ) : (
+                                !isLoadingCalendar && <Alert severity="info">Loading company calendar or not available for {userCountry}.</Alert>
                             )}
                         </Box>
                     </Paper>
                 </Grid>
 
-                {/* Leave History */}
                 <Grid item xs={12}>
-                   <LeaveHistoryTable
+                    <LeaveHistoryTable
                         history={leaveHistory}
                         isLoading={isLoadingHistory}
                         error={errorHistory}
-                        onCancel={handleCancelLeave}
-                        cancellingId={cancellingId}
-                   />
+                        onCancel={handleCancelLeaveRequest}
+                        cancellingId={cancellingLeaveId}
+                    />
                 </Grid>
             </Grid>
 
-            {/* Application Modal */}
-             <LeaveApplyModal
-                 open={isApplyModalOpen}
-                 onClose={() => setIsApplyModalOpen(false)}
-                 onSubmit={handleApplyLeaveSubmit}
-                 selectionInfo={selectionInfo}
-                 balance={leaveBalance}
-                 companyCalendar={companyCalendar}
-                 calculateWorkingDays={calculateWorkingDaysFrontend} // Pass helper
-                 isNonWorkingDay={isNonWorkingDay} // Pass helper
-             />
-
+            <LeaveApplyModal
+                open={isApplyModalOpen}
+                onClose={() => {
+                    setIsApplyModalOpen(false);
+                    setSelectionInfo(null); // Clear selection when modal closes
+                }}
+                onSubmit={handleApplyLeaveSubmitThunk} // Passes the thunk dispatcher
+                selectionInfo={selectionInfo}
+                balance={leaveBalance}
+                companyCalendar={companyCalendar}
+                calculateWorkingDays={calculateWorkingDaysFrontend}
+                isNonWorkingDay={isNonWorkingDay}
+            // Applying leave loading state is now directly from Redux: `isApplyingLeave`
+            />
         </Box>
     );
 };

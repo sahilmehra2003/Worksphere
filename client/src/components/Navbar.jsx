@@ -33,16 +33,26 @@ const Navbar = ({ isSidebarOpen, setIsSidebarOpen }) => {
   const isOpen = Boolean(anchorEl);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user) {
-      setUser({
-        name: user.name || "Default Name",
-        role: user.role || "Default Role",
-      });
+    const userDataString = localStorage.getItem("worksphereUser"); // CORRECT KEY
+    if (userDataString) {
+      try {
+        const userData = JSON.parse(userDataString);
+        setUser({
+          name: userData.name || "User",
+          role: userData.role || "Role",
+        });
+      } catch (e) {
+        console.error("Navbar: Failed to parse user data from localStorage", e);
+        setUser({ name: "User", role: "Role" }); // Fallback
+      }
     } else {
-      navigate("/login");
+      console.warn("Navbar: 'worksphereUser' not found in localStorage. Displaying default user info.");
+      setUser({ name: "User", role: "Role" }); // Fallback
+      // navigate("/login"); // <<< REMOVE THIS LINE
     }
-  }, [navigate]);
+    // }, [navigate]); // Consider if 'navigate' is truly needed if you remove the navigation call.
+    // If only setting local state, it might just need to run once:
+  }, []); // Run once on mount to get user display info
 
   function handleClick(event) {
     setAnchorEl(event.currentTarget);

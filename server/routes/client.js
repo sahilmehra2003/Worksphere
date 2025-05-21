@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/clients', getAllClients); 
 router.get('/client/:id',getClientById); 
 router.post('/client/create',createClient);
-router.put('/client/upadte/:id',updateClient)
+router.put('/client/update/:id',updateClient)
 router.patch(
     'deactivateClient/:clientId',
     authN,

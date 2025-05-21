@@ -82,3 +82,4 @@ client/*.local # Keep the *.local rule specific to client
 # Other common ignores
 #========================================================================
 coverage/
+node_modules

@@ -1,11 +1,11 @@
 import express from 'express';
 import {
     getEmployeeDashboardSummary,
-} from '../controllers/dashboardController.js'; // Adjust path as needed
-import { authN } from '../middlewares/auth.js'; // Adjust path
-import { checkRole } from '../middlewares/authorization.js'; 
+} from '../controllers/employeeDashboard.controller.js'; 
+import { authN } from '../middlewares/auth.js'; 
+import { checkRole } from '../middlewares/permission.middleware.js'; 
 import { getManagerDashboardSummary } from '../controllers/managerDashboard.controller.js';
-import { getHRDashboardSummary } from '../controllers/hrDashboard.controller.js';
+import { getHrDashboardSummary } from '../controllers/hrDashboard.controller.js';
 import { getAdminDashboardSummary } from '../controllers/adminDashboard.controller.js';
 const router = express.Router();
 
@@ -37,7 +37,7 @@ router.get(
     '/hr-summary',
     authN,
     checkRole(['HR', 'Admin']),
-    getHRDashboardSummary   
+    getHrDashboardSummary   
 );
 
 export default router;

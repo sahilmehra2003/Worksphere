@@ -10,8 +10,13 @@ import LeaveBalance from '../models/leaveBalance.model.js';
 import { sendMail } from '../utility/sendEmail.util.js';
 import { otpEmailTemplate } from '../utility/_email_templates/verificationEmail.template.js';
 import { welcomeEmailTemplate } from '../utility/_email_templates/welcomeEmail.template.js';
+import { resetPasswordTemplate } from '../utility/_email_templates/passwordResetTemplate.template.js';
 
 dotenv.config();
+
+const ENCRYPTION_KEY = process.env.ACCESS_TOKEN_ENCRYPTION_KEY || 'default_secret_key_32bytes!'; // Must be 32 bytes
+const IV_LENGTH = 16; // For AES, this is always 16
+
 
 export const sendOTP = async (req, res) => {
     try {
@@ -124,19 +129,19 @@ export const verifyOtp = async (req, res) => {
         await OTP.deleteOne({ _id: latestOtpDoc._id });
 
         console.log(`Email verified successfully for ${email}`);
-        
+
         try {
             await sendMail(
                 employee.email,
                 employee.name,
-                "Welcome to Worksphere!",       
-                employee.name,                 
-                welcomeEmailTemplate            
+                "Welcome to Worksphere!",
+                employee.name,
+                welcomeEmailTemplate
             );
             console.log(`Welcome email sent successfully to ${employee.email}`);
-       } catch (mailError) {
+        } catch (mailError) {
             console.error(`Failed to send welcome email to ${employee.email} after verification:`, mailError);
-       }
+        }
 
         return res.status(200).json({
             success: true,
@@ -215,7 +220,6 @@ export const signup = async (req, res) => {
     }
 };
 
-
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -227,7 +231,6 @@ export const login = async (req, res) => {
         }
 
         const employee = await Employee.findOne({ email }).select('+password');
-
         if (!employee) {
             return res.status(401).json({
                 success: false,
@@ -235,13 +238,11 @@ export const login = async (req, res) => {
             });
         }
 
-        if (employee.employmentStatus !== 'working' && employee.employmentStatus !== 'on_leave') { // Adjust allowed statuses
-            console.warn(`Login attempt for inactive employee: ${email}, Status: ${employee.employmentStatus}`);
+        if (employee.employmentStatus !== 'working' && employee.employmentStatus !== 'on_leave') {
             return res.status(403).json({ success: false, message: "Your account is not currently active." });
         }
 
         const isMatch = await employee.matchPassword(password);
-
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
@@ -252,38 +253,59 @@ export const login = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 message: "You need to verify your email before login"
-            })
+            });
         }
+
         const payload = {
-            id: employee._id,
+            id: employee._id, // This 'id' is what authN middleware expects from decoded token
             email: employee.email,
             role: employee.role,
             name: employee.name,
             country: employee.country
         };
-        console.log("JWT Payload:", payload);
-        const token = jwt.sign(
-            payload,
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.JWT_EXPIRE || '2d' }
-        );
 
-        employee.password = undefined;
+        // Generate tokens
+        const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+        const refreshTokenValue = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' }); // Renamed for clarity
 
-        const cookieOptions = {
-            expires: new Date(Date.now() + parseInt(process.env.JWT_COOKIE_EXPIRE_DAYS || 2) * 24 * 60 * 60 * 1000),
+        // Store refresh token and expiry in DB
+        employee.refreshToken = refreshTokenValue;
+        employee.refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        await employee.save();
+
+        employee.password = undefined; // Remove password from the employee object sent to client
+
+        // Consistent Cookie Options
+        const primaryCookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict'
+            // 'Lax' is a good default. Use 'None' for cross-domain IF 'secure' is also true.
+            sameSite: process.env.NODE_ENV === 'production' ? (process.env.COOKIE_SAMESITE_NONE_SECURE ? 'None' : 'Lax') : 'Lax',
+            maxAge: 24 * 60 * 60 * 1000 // 1 day for access token cookie
         };
 
-        res.status(200)
-            .cookie('token', token, cookieOptions)
+        const refreshTokenCookieOptions = {
+            ...primaryCookieOptions,
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days for refresh token cookie
+        };
+
+        res
+            .cookie('token', accessToken, primaryCookieOptions) // *** SET THE 'token' COOKIE with plain JWT ***
+            .cookie('refreshToken', refreshTokenValue, refreshTokenCookieOptions) // Keep refresh token cookie if your refresh strategy uses it
+            .status(200)
             .json({
                 success: true,
                 message: "User logged in Successfully",
-                token,
-                user: employee
+                accessToken, // Still okay to send plain token in body for frontend state if needed
+                // refreshToken, // Optionally send if frontend directly uses it (less common for web)
+                user: { // Send necessary, non-sensitive user details
+                    id: employee._id,
+                    name: employee.name,
+                    email: employee.email,
+                    role: employee.role,
+                    isProfileComplete: employee.isProfileComplete,
+                    isVerified: employee.isVerified
+                }
             });
 
     } catch (error) {
@@ -295,6 +317,130 @@ export const login = async (req, res) => {
         });
     }
 };
+
+
+
+export const googleAuthenticationCallback = async (req, res) => {
+    try {
+        if (!req.user) {
+            console.error('Google OAuth Callback: req.user is not populated. Passport strategy might have failed or user denied access.');
+            return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_authentication_failed_user_not_set`);
+        }
+
+        let employeeDocument;
+
+        if (req.user.fromGoogle === true && !req.user._id) {
+            console.log('Google OAuth Callback: Handling new user profile from Google strategy:', req.user);
+            const { googleId, email, name, isVerified } = req.user;
+
+            const newEmployeeData = {
+                googleId,
+                email,
+                name,
+                isVerified,
+                isProfileComplete: false,
+                role: 'Employee',
+                phoneNumber: '0000000000',
+                city: 'Not Set',
+                state: 'Not Set',
+                country: 'XX',
+                position: 'Employee',
+                employmentStatus: 'working',
+            };
+
+            employeeDocument = await Employee.create(newEmployeeData);
+            console.log('New Employee created in DB from Google Sign-In:', JSON.stringify(employeeDocument, null, 2));
+
+            try {
+                await LeaveBalance.create({ employee: employeeDocument._id });
+                console.log(`Created initial leave balance for new Google employee ${employeeDocument._id}`);
+            } catch (balanceError) {
+                console.error(`Failed to create initial leave balance for new Google employee ${employeeDocument._id}:`, balanceError);
+            }
+
+            try {
+                await sendMail(
+                    employeeDocument.email,
+                    employeeDocument.name,
+                    "Welcome to Worksphere!",
+                    employeeDocument.name,
+                    welcomeEmailTemplate
+                );
+                console.log(`Welcome email sent to new Google employee ${employeeDocument.email}`);
+            } catch (mailError) {
+                console.error(`Failed to send welcome email to new Google employee ${employeeDocument.email}:`, mailError);
+            }
+        } else if (req.user._id) {
+            employeeDocument = req.user;
+            console.log('Google OAuth Callback: Handling existing employee:', JSON.stringify(employeeDocument, null, 2));
+        } else {
+            console.error('Google OAuth Callback: req.user is in an unexpected state.');
+            return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_unexpected_user_state`);
+        }
+
+        if (!employeeDocument || !employeeDocument._id) {
+            console.error('Google OAuth Callback: Employee document or _id is still missing before JWT creation.');
+            return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_final_user_error`);
+        }
+
+        const jwtPayload = {
+            id: employeeDocument._id.toString(),
+            email: employeeDocument.email,
+            role: employeeDocument.role,
+            name: employeeDocument.name,
+            country: employeeDocument.country,
+            isVerified: employeeDocument.isVerified,
+            isProfileComplete: employeeDocument.isProfileComplete,
+        };
+        console.log("Issuing JWT with payload:", jwtPayload);
+
+        const accessToken = jwt.sign(jwtPayload, process.env.JWT_SECRET, {
+            expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRE || '1d',
+        });
+
+        const cookieOptions = {
+            expires: new Date(Date.now() + parseInt(process.env.JWT_COOKIE_EXPIRE_DAYS || '1') * 24 * 60 * 60 * 1000),
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+        };
+
+        res.cookie('token', accessToken, cookieOptions);
+
+        let redirectUrl = `${process.env.FRONTEND_URL}/app/dashboard`;
+        if (employeeDocument.isProfileComplete === false) {
+            redirectUrl = `${process.env.FRONTEND_URL}/app/complete-profile`;
+            console.log(`Redirecting user ${employeeDocument.email} to complete profile.`);
+        } else {
+            console.log(`User ${employeeDocument.email} logged in via Google. Redirecting to dashboard.`);
+        }
+
+        res.redirect(redirectUrl);
+
+    } catch (error) {
+        console.error("Error in googleAuthenticationCallback controller:", error);
+        if (error.code === 11000 && error.keyPattern && error.keyPattern.email) {
+            console.error("Google Sign-In: Email already exists traditionally. User should link accounts or login with password.");
+            return res.redirect(`${process.env.FRONTEND_URL}/login?error=email_already_exists_google`);
+        }
+        res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_processing_error`);
+    }
+};
+
+export const getCurrentUser = (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.removeHeader('ETag');
+
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+
+    res.status(200).json({ success: true, user: req.user });
+};
+
+
 
 export const forgotPassword = async (req, res) => {
     try {
@@ -326,7 +472,7 @@ export const forgotPassword = async (req, res) => {
                     employee.name,
                     `Worksphere - Password Reset Request`,
                     resetUrl,
-                    resetPasswordTemplate(employee.name, resetUrl)
+                    resetPasswordTemplate
                 );
                 console.log(`Password reset email sent successfully to ${employee.email}`);
             } catch (mailError) {

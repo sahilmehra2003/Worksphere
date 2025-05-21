@@ -1,9 +1,9 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-    Box, Drawer, IconButton, List, ListItem, 
-    ListItemButton, ListItemIcon, ListItemText, Typography, useTheme 
+import {
+    Box, Drawer, IconButton, List, ListItem,
+    ListItemButton, ListItemIcon, ListItemText, Typography, useTheme
 } from "@mui/material";
 import {
     ChevronLeft,
@@ -11,11 +11,12 @@ import {
     Groups2Outlined,
     ReceiptLongOutlined,
     // HomeOutlined,          // Uncomment later
-    // AssignmentIcon,        // Uncomment later
+    Assignment,
     // Groups,                // Uncomment later
     // CheckCircle,           // Uncomment later
     // TrendingUpOutlined,    // Uncomment later
-   CalendarMonthOutlined  
+    CalendarMonthOutlined,
+    Task
 } from "@mui/icons-material";
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import ApartmentIcon from '@mui/icons-material/Apartment';
@@ -23,6 +24,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import { PublicOutlined } from '@mui/icons-material';
 import logo from '../assets/logo-png.png';
 import FlexBetween from './FlexBetween';
+import { icon } from 'leaflet';
 
 // Organized with future sections in mind
 const navItems = [
@@ -34,7 +36,7 @@ const navItems = [
         isSticky: true  // Special styling for dashboard
     },
     */
-    
+
     /* ===== Client Section ===== */
     {
         id: 'client-section',
@@ -47,13 +49,13 @@ const navItems = [
         text: "Clients",
         icon: <Groups2Outlined />
     },
-    /*
+
     {
         id: 'projects',
         text: "Projects",
-        icon: <AssignmentIcon />
+        icon: <Assignment />
     },
-    */
+
     {
         id: 'transactions',
         text: "Transactions",
@@ -77,6 +79,11 @@ const navItems = [
         text: "Employees",
         icon: <PersonIcon />
     },
+    {
+        id: 'task',
+        text: "Tasks",
+        icon:<Task/>
+    },
 
     /* ===== Department Section ===== */
     {
@@ -93,7 +100,7 @@ const navItems = [
     {
         id: 'company calendar',
         text: "calendar",
-        icon: <CalendarMonthOutlined/>
+        icon: <CalendarMonthOutlined />
     },
     {
         id: 'management-section',
@@ -104,7 +111,12 @@ const navItems = [
     {
         id: 'leave',
         text: 'Leave System',
-        icon: <EventBusyIcon/>
+        icon: <EventBusyIcon />
+    },
+    {
+        id: 'timesheet',
+        text: 'Timesheet',
+        icon: <Assignment />
     },
     /* ===== Future Sections (uncomment later) =====
     {
@@ -148,7 +160,7 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                     sx={{
                         width: drawerWidth,
                         "& .MuiDrawer-paper": {
-                            backgroundColor: theme.palette.background.alt, 
+                            backgroundColor: theme.palette.background.alt,
                             color: 'white',
                             boxSizing: "border-box",
                             borderWidth: isNonMobile ? 0 : "2px",
@@ -176,7 +188,7 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                             {navItems.map(({ id, text, icon, isSectionHeader, isSticky }) => {
                                 if (isSectionHeader) {
                                     return (
-                                        <Typography 
+                                        <Typography
                                             key={`section-${id}`}
                                             sx={{ m: "1.5rem 2rem 2rem 3rem", color: theme.palette.neutral.main }}
                                         >
@@ -186,14 +198,14 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                                 }
 
                                 return (
-                                    <ListItem 
+                                    <ListItem
                                         key={id}
                                         disablePadding
-                                        sx={isSticky ? { 
-                                            position: "sticky", 
-                                            top: 60, 
-                                            zIndex: 1, 
-                                            backgroundColor: '#301E67' 
+                                        sx={isSticky ? {
+                                            position: "sticky",
+                                            top: 60,
+                                            zIndex: 1,
+                                            backgroundColor: '#301E67'
                                         } : {}}
                                     >
                                         <ListItemButton

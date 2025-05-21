@@ -21,7 +21,7 @@ import { Permissions } from '../config/permission.config.js'
 const router = express.Router();
 
 router.post('/addEntries',authN,addTimesheetEntry);
-router.patch('/updateEntries',authN,updateTimesheetEntry);
+router.patch('/updateEntries/:entryId',authN,updateTimesheetEntry);
 router.delete('/deleteEntries/:entryId',authN,deleteTimesheetEntry);
 router.get('/getALLTimesheets',authN,checkPermission(Permissions.VIEW_ALL_TIMESHEETS),getAllTimesheets);
 router.get('/myTimeSheets',authN,getMyTimesheets);

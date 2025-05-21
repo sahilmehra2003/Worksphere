@@ -21,7 +21,7 @@ const GeoLocation = () => {
     useEffect(() => {
         const fetchClients = async () => {
             try {
-                const response = await fetch("http://localhost:4000/clientData/clients");
+                const response = await fetch("http://localhost:4000/api/v1/clientData/clients");
                 const data = await response.json();
                 // console.log(data);
                 // Group by location and sum revenue

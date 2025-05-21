@@ -1,13 +1,11 @@
+// Dashboard.jsx (Restored)
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "axios"; // Using global axios for now as per original structure
 import { Grid, Paper, Typography, Box, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+// import { axiosInstance } from "../services/apiConnector"; // Keep this commented if not immediately using
 
-/**
- * A small helper to find the entity with the maximum revenueGenerated.
- * @param {Array} items - array of items, each having a revenueGenerated field
- * @returns the item with the highest revenue (or null if empty)
- */
+// Helper function to find the entity with the maximum revenueGenerated
 function findHighestRevenue(items) {
   if (!items || items.length === 0) return null;
   return items.reduce((max, current) =>
@@ -15,9 +13,7 @@ function findHighestRevenue(items) {
   );
 }
 
-/**
- * A small helper to find the department with the maximum avgRating.
- */
+// Helper function to find the department with the maximum avgRating
 function findHighestRating(items) {
   if (!items || items.length === 0) return null;
   return items.reduce((max, current) =>
@@ -36,57 +32,71 @@ const Dashboard = () => {
   const [highestRevenueDepartment, setHighestRevenueDepartment] = useState(null);
   const [highestRatingDepartment, setHighestRatingDepartment] = useState(null);
   const [monthWithHighestProfit, setMonthWithHighestProfit] = useState(null);
-  const [user, setUser] = useState({ name: '', role: '' });
+  const [user, setUser] = useState({ name: 'User', role: 'Role' }); // Initialize with defaults
 
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // Keep for potential future use, though not for auth redirect here
 
-  // Fetch user data from localStorage and handle redirection if not authenticated
+  // Fetch user display name/role from localStorage
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem("user"));
-    if (userData) {
-      setUser({
-        name: userData.name || "Default Name",
-        role: userData.role || "Default Role",
-      });
+    console.log("Dashboard.jsx: useEffect for user display info running.");
+    const userDataString = localStorage.getItem("worksphereUser"); // Using "worksphereUser"
+    if (userDataString) {
+      try {
+        const userData = JSON.parse(userDataString);
+        console.log("Dashboard.jsx: Found worksphereUser in localStorage:", userData);
+        setUser({
+          name: userData.name || "User", // Fallback
+          role: userData.role || "Role",   // Fallback
+        });
+      } catch (e) {
+        console.error("Dashboard.jsx: Failed to parse user data from localStorage", e);
+        // Keep default user state if parsing fails
+      }
     } else {
-      navigate("/login");
+      console.warn("Dashboard.jsx: 'worksphereUser' not found in localStorage. Using default display info.");
+      // CRITICAL: DO NOT NAVIGATE TO LOGIN FROM HERE. Protected.jsx handles authentication.
     }
-  }, [navigate]);
+  }, []); // Run once on mount to get user display info
 
   // Fetch data from APIs
   useEffect(() => {
     const fetchData = async () => {
+      console.log("Dashboard.jsx: fetchData useEffect started.");
       try {
         setLoading(true);
 
-        // 1) Fetch all clients
-        const clientRes = await axios.get("http://localhost:4000/clientData/clients");
+        // Consider using axiosInstance if these endpoints require authentication cookies
+        // For now, using global axios as per the original structure you provided.
+        const clientRes = await axios.get("http://localhost:4000/api/v1clientData/clients");
+        const deptRes = await axios.get("http://localhost:4000/api/v1/departmentData/departments");
+        const txnRes = await axios.get("http://localhost:4000/api/v1/transactionsDetails/transactions");
 
-        // 2) Fetch all departments
-        const deptRes = await axios.get("http://localhost:4000/departmentData/departments");
+        console.log("Dashboard.jsx: Fetched client data:", clientRes.data);
+        console.log("Dashboard.jsx: Fetched department data:", deptRes.data);
+        console.log("Dashboard.jsx: Fetched transaction data:", txnRes.data);
 
-        // 3) Fetch all transactions
-        const txnRes = await axios.get("http://localhost:4000/transactionsDetails/transactions");
+        const clientsData = clientRes.data || [];
+        const departmentsData = deptRes.data || [];
+        const transactionsData = txnRes.data?.transactions || []; // Assuming transactions are nested
 
-        setClients(clientRes.data || []);
-        setDepartments(deptRes.data || []);
-        setTransactions(txnRes.data.transactions || []);
+        setClients(clientsData);
+        setDepartments(departmentsData);
+        setTransactions(transactionsData);
 
-        const maxClient = findHighestRevenue(clientRes.data);
-        const maxDeptRevenue = findHighestRevenue(deptRes.data);
-        const maxDeptRating = findHighestRating(deptRes.data);
+        const maxClient = findHighestRevenue(clientsData);
+        const maxDeptRevenue = findHighestRevenue(departmentsData);
+        const maxDeptRating = findHighestRating(departmentsData);
 
         const profitByMonth = {};
-        txnRes.data.transactions.forEach((txn) => {
+        transactionsData.forEach((txn) => {
           if (txn.profit == null) return;
-
           const normalizedMonth = String(txn.month).padStart(2, "0");
           const monthKey = `${txn.year}-${normalizedMonth}`;
           profitByMonth[monthKey] = (profitByMonth[monthKey] || 0) + txn.profit;
         });
 
         let highestMonth = null;
-        let highestProfitVal = 0;
+        let highestProfitVal = -Infinity; // Initialize with a very small number
         Object.entries(profitByMonth).forEach(([monthKey, totalProfit]) => {
           if (totalProfit > highestProfitVal) {
             highestProfitVal = totalProfit;
@@ -98,17 +108,19 @@ const Dashboard = () => {
         setHighestRevenueDepartment(maxDeptRevenue);
         setHighestRatingDepartment(maxDeptRating);
         setMonthWithHighestProfit(highestMonth);
+
       } catch (error) {
         console.error("Error fetching data for dashboard:", error);
+        // Optionally set an error state here to display to the user
       } finally {
         setLoading(false);
+        console.log("Dashboard.jsx: fetchData completed, setLoading(false).");
       }
     };
 
     fetchData();
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount
 
-  // Display loading spinner while data is being fetched
   if (loading) {
     return (
       <Box
@@ -116,7 +128,7 @@ const Dashboard = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          minHeight: "50vh",
+          minHeight: "80vh", // Adjusted from 50vh for better centering
         }}
       >
         <CircularProgress />
@@ -149,7 +161,7 @@ const Dashboard = () => {
                   Name: {highestRevenueClient.name}
                 </Typography>
                 <Typography variant="body2">
-                  Revenue: {highestRevenueClient.revenueGenerated || "150000"}
+                  Revenue: {highestRevenueClient.revenueGenerated != null ? highestRevenueClient.revenueGenerated : "N/A"}
                 </Typography>
               </>
             ) : (
@@ -170,7 +182,7 @@ const Dashboard = () => {
                   Dept Name: {highestRevenueDepartment.name}
                 </Typography>
                 <Typography variant="body2">
-                  Revenue: {highestRevenueDepartment.revenueGenerated}
+                  Revenue: {highestRevenueDepartment.revenueGenerated != null ? highestRevenueDepartment.revenueGenerated : "N/A"}
                 </Typography>
               </>
             ) : (
@@ -191,7 +203,7 @@ const Dashboard = () => {
                   Dept Name: {highestRatingDepartment.name}
                 </Typography>
                 <Typography variant="body2">
-                  Rating: {highestRatingDepartment.avgRating}
+                  Rating: {highestRatingDepartment.avgRating != null ? highestRatingDepartment.avgRating : "N/A"}
                 </Typography>
               </>
             ) : (

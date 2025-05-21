@@ -41,7 +41,7 @@ export async function getHolidaysForCountry(countryCode, year) {
             } else {
                 // Handle cases where API call was successful but no holidays array is present
                 console.log(`API returned success code, but no holidays found for ${params.country} in ${params.year}.`);
-                return []; // Return an empty array
+                return []; // Return an empty array 
             }
         } else {
             // Handle API errors reported within the response body

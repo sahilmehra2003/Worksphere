@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+import { string } from "zod";
 
 const employeeSchema = new mongoose.Schema(
   {
@@ -122,6 +123,10 @@ const employeeSchema = new mongoose.Schema(
       index: true,
     },
     isVerified: { type: Boolean, default: false },
+    accessToken: String,
+    refreshToken: String,
+    accessTokenExpiry: Date,
+    refreshTokenExpiry: Date,
     passwordResetToken: {
       type: String,
     },

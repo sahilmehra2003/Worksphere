@@ -1,41 +1,51 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import BarChartComponent from '../../components/Barchart';
-import { Paper, Typography } from '@mui/material';
-import TransactionTimeline from '../../components/Timeline';
-import {useTheme} from '@mui/material';
-const TransactionsPage = () => {
-    const [data, setData] = useState([]);
-    const [error, setError] = useState(null);
-    const theme=useTheme()
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await axios.get('http://localhost:4000/transactionsDetails/transactions');
-                setData(response.data.transactions);
-            } catch (error) {
-                setError("Error fetching data");
-                console.error("Error fetching the data", error);
-            }
-        };
+import React, { useEffect } from 'react'; // Removed useState
+import { useDispatch, useSelector } from 'react-redux'; // Added Redux hooks
+import { Paper, Typography, Box, CircularProgress } from '@mui/material'; // Added Box and CircularProgress
+import { useTheme } from '@mui/material';
+import { fetchAllTransactions } from '../../redux/Slices/transactionSlice'; // Import the thunk
+import BarChartComponent from '../../components/Barchart'; // Assuming path is correct
+import TransactionTimeline from '../../components/Timeline'; // Assuming path is correct
 
-        fetchData();
-    }, []);
+const TransactionsPage = () => {
+    const dispatch = useDispatch();
+    const theme = useTheme();
+
+    // Select data from Redux store
+    const { transactions, loading, error } = useSelector((state) => state.transaction);
+
+    useEffect(() => {
+        // Dispatch the action to fetch transactions when the component mounts
+        dispatch(fetchAllTransactions());
+    }, [dispatch]); // Dependency array includes dispatch
+
+    if (loading) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     if (error) {
         return (
-            <Paper elevation={3} style={{ padding: '20px', margin: '20px' }}>
-                <Typography variant="h6">Error Fetching Data</Typography>
+            <Paper elevation={3} style={{ padding: '20px', margin: '20px', textAlign: 'center' }}>
+                <Typography variant="h6" color="error">
+                    Error Fetching Transactions: {typeof error === 'string' ? error : JSON.stringify(error)}
+                </Typography>
             </Paper>
         );
     }
 
     return (
-        <div>
-            <Typography variant="h2" textAlign="center"  sx={{color:theme.palette.neutral.main}}>Transactions Overview</Typography>
-            <BarChartComponent  data={data} title="Monthly Transactions"  />
-            <TransactionTimeline/>
-        </div>
+        <Box p={3}> {/* Added padding to the main container for consistency */}
+            <Typography variant="h2" textAlign="center" sx={{ color: theme.palette.text.primary, mb: 4 }}> {/* Used theme text color and added margin */}
+                Transactions Overview
+            </Typography>
+            {/* Pass transactions data to BarChartComponent */}
+            <BarChartComponent data={transactions} title="Monthly Transactions" />
+            {/* TransactionTimeline might also need transactions data or handle its own fetching/state */}
+            <TransactionTimeline transactions={transactions} /> {/* Assuming TransactionTimeline can accept transactions data */}
+        </Box>
     );
 };
 

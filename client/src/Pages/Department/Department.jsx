@@ -1,5 +1,6 @@
+// DepartmentSlider.jsx
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from "@mui/material/styles";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
@@ -7,8 +8,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import FlexBetween from "../../components/FlexBetween";
-import DeleteDepartmentCard from "../../components/DeleteCard";
-import AddDepartmentForm from "../../components/DepartmentForm";
+import AddDepartmentModal from "../../components/DepartmentForm";
+import EditDepartmentModal from "./EditDepartmentModal";
 import {
   Box,
   Divider,
@@ -21,318 +22,302 @@ import {
   TableRow,
   Typography,
   Button,
-  Backdrop,
+  CircularProgress,
+  Alert,
+  Paper,
+  IconButton,
+  Tooltip
 } from "@mui/material";
 import { NavLink } from "react-router-dom";
+import {
+  fetchAllDepartments,
+  setCurrentDepartmentByIndex,
+  setDepartmentInactive,
+  clearDepartmentOperationStatus
+} from "../../redux/Slices/departmentSlice"; // Adjust path
+import { toast } from "react-hot-toast";
 
 const DepartmentSlider = () => {
   const theme = useTheme();
-  const [departments, setDepartments] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showDeleteCard, setShowDeleteCard] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [departmentCreated, setDepartmentCreated] = useState(false); // To track if department was successfully created
+  const dispatch = useDispatch();
 
-  const fetchDepartments = async () => {
-    try {
-      const response = await axios.get("http://localhost:4000/departmentData/departments");
-      if (!response.data || response.data.length === 0) {
-        throw new Error("No departments available.");
-      }
-      setDepartments(response.data);
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || "Failed to fetch departments.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    departments,
+    currentDepartmentIndex,
+    // currentDepartmentDetails is derived: departments[currentDepartmentIndex]
+    loading,
+    error,
+    operationLoading,
+    operationError,
+    operationSuccess
+  } = useSelector((state) => state.department);
+  const { user: authUser } = useSelector((state) => state.auth);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  // currentEditingDepartment will be departmentToDisplay when edit modal is opened
+
+  const isAdmin = authUser?.role === 'Admin' || authUser?.role === 'HR'; // Or other appropriate roles
 
   useEffect(() => {
-    fetchDepartments();
-  }, []);
- 
-  const handleDepartmentDeleted = () => {
-    fetchDepartments();
-  };
-  function handleFormSubmit(){
-     fetchDepartments()
-  }
+    dispatch(fetchAllDepartments());
+  }, [dispatch]);
+
+  // Effect for general operation toasts (though specific forms might handle their own)
+  useEffect(() => {
+    if (operationSuccess) {
+      // A generic success, specific messages are better in the modal's success handler.
+      // toast.success("Department operation successful!");
+      dispatch(clearDepartmentOperationStatus());
+    }
+    if (operationError) {
+      // A generic error, specific messages are better in the modal's error handler.
+      // toast.error(operationError);
+      dispatch(clearDepartmentOperationStatus());
+    }
+  }, [operationSuccess, operationError, dispatch]);
+
+  const departmentToDisplay = departments && departments.length > 0 && departments[currentDepartmentIndex]
+    ? departments[currentDepartmentIndex]
+    : null;
+
   const handlePrevious = () => {
-    setCurrentIndex((prevIndex) =>
-      prevIndex === 0 ? departments.length - 1 : prevIndex - 1
-    );
+    dispatch(setCurrentDepartmentByIndex(currentDepartmentIndex - 1));
   };
 
   const handleNext = () => {
-    setCurrentIndex((prevIndex) =>
-      prevIndex === departments.length - 1 ? 0 : prevIndex + 1
+    dispatch(setCurrentDepartmentByIndex(currentDepartmentIndex + 1));
+  };
+
+  const handleOpenAddModal = () => setShowAddModal(true);
+  const handleCloseAddModal = () => setShowAddModal(false);
+
+  const handleOpenEditModal = () => { // No need to pass department, it uses departmentToDisplay
+    if (departmentToDisplay) {
+      setShowEditModal(true);
+    } else {
+      toast.error("No department selected to edit.");
+    }
+  };
+  const handleCloseEditModal = () => setShowEditModal(false);
+
+  const handleDeactivateDepartment = async () => {
+    if (departmentToDisplay && window.confirm(`Are you sure you want to deactivate the "${departmentToDisplay.name}" department? Its status will be set to Inactive.`)) {
+      dispatch(setDepartmentInactive(departmentToDisplay._id));
+      // Thunks in departmentSlice now handle re-fetching list on success
+    }
+  };
+
+  const handleOperationCompleted = () => { // Unified callback for modals
+    dispatch(fetchAllDepartments()); // Re-fetch all after add/edit
+  };
+
+
+  if (loading && departments.length === 0) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <CircularProgress />
+      </Box>
     );
-  };
-
-  const handleDeleteCard = () => {
-    setShowDeleteCard(true);
-  };
-
-  const handleCloseDeleteCard = () => {
-    setShowDeleteCard(false);
-  };
-
-  const handleAddDepartment = () => {
-    setShowForm(true); // Show the form when "Add Department" is clicked
-  };
-
-  const handleCloseForm = () => {
-    setShowForm(false); // Close the form once the department is added
-    setDepartmentCreated(true); // Set the department as created successfully
-  };
-
-  if (loading) {
-    return <Typography>Loading departments...</Typography>;
   }
 
-  if (error) {
-    return <Typography color="error">Error: {error}</Typography>;
+  if (error && departments.length === 0) {
+    return <Alert severity="error" sx={{ m: 2 }}>Error loading departments: {error}</Alert>;
   }
 
-  const currentDepartment = departments[currentIndex];
-  const profitOrLoss =
-    currentDepartment.revenueGenerated - currentDepartment.budgetAllocated;
+  if (departments.length === 0 && !loading && !error) {
+    return (
+      <Box textAlign="center" p={3}>
+        <Typography variant="h5" gutterBottom>No Departments Found</Typography>
+        {isAdmin && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenAddModal}>
+            Add Your First Department
+          </Button>
+        )}
+      </Box>
+    );
+  }
+
+  if (!departmentToDisplay && !loading && departments.length > 0) {
+    // This might happen if index is out of sync briefly, or if departments becomes empty after a delete
+    return (
+      <Box textAlign="center" p={3}>
+        <Typography variant="h5" gutterBottom>Please select a department or add one.</Typography>
+        {isAdmin && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenAddModal}>
+            Add Department
+          </Button>
+        )}
+      </Box>
+    );
+  }
+
+  // Ensure departmentToDisplay is not null before trying to access its properties
+  const profitOrLoss = departmentToDisplay ?
+    (departmentToDisplay.revenueGenerated || 0) - (departmentToDisplay.budgetAllocated || 0) : 0;
 
   return (
-    <Box>
-      {showDeleteCard && (
-        <Backdrop
-          open={showDeleteCard}
-          sx={{
-            zIndex: theme.zIndex.modal,
-            backdropFilter: "blur(5px)",
-          }}
-        >
-          <DeleteDepartmentCard
-            showCard={showDeleteCard}
-            setShow={setShowDeleteCard}
-            departmentId={currentDepartment._id}
-            onClose={handleCloseDeleteCard}
-            onDepartmentDeleted={handleDepartmentDeleted}
-          />
-        </Backdrop>
+    <Box p={3}>
+      {isAdmin && (
+        <AddDepartmentModal
+          open={showAddModal}
+          onClose={handleCloseAddModal}
+          onDepartmentAdded={handleOperationCompleted}
+        />
       )}
-      
-      {/* Conditional rendering: Show form only when showForm is true */}
-      {showForm ? (
-        <AddDepartmentForm onClose={handleCloseForm} onDepartmentAdded={handleFormSubmit} />
-      ) : (
-        <Box
+
+      {isAdmin && departmentToDisplay && ( // Ensure departmentToDisplay exists before rendering Edit Modal
+        <EditDepartmentModal
+          open={showEditModal}
+          onClose={handleCloseEditModal}
+          departmentData={departmentToDisplay}
+          onSuccess={handleOperationCompleted}
+        />
+      )}
+
+      {/* Main Department Display Area */}
+      {departmentToDisplay ? ( // Only show if a department is selected/available
+        <Paper
+          elevation={3}
           sx={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            backgroundColor: theme.palette.background.default,
-            padding: theme.spacing(4),
-            borderRadius: theme.spacing(2),
-            border: `1px solid ${theme.palette.primary.main}`,
-            boxShadow: theme.shadows[3],
-            transition: "opacity 0.3s",
-            filter: showDeleteCard ? "blur(4px)" : "none",
+            padding: theme.spacing(3),
+            borderRadius: theme.shape.borderRadius,
+            backgroundColor: theme.palette.background.default, // Your original style
+            border: `1px solid ${theme.palette.primary.main}`, // Your original style
+            boxShadow: theme.shadows[3], // Your original style
           }}
         >
-          {/* Navigation */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              width: "80%",
-              marginBottom: theme.spacing(2),
-            }}
-          >
+          <FlexBetween width="100%" mb={2}>
             <Button
-              variant="contained"
+              variant="contained" // Your original style
               color="primary"
               onClick={handlePrevious}
               startIcon={<ArrowBackIosIcon />}
+              disabled={departments.length <= 1 || operationLoading}
             >
               Previous
             </Button>
+            <Typography variant="h2" sx={{ fontWeight: "bold", color: "orangered", textAlign: 'center', flexGrow: 1 }}>
+              {departmentToDisplay.name || "Department Name"}
+            </Typography>
             <Button
-              variant="contained"
+              variant="contained" // Your original style
               color="primary"
               onClick={handleNext}
               endIcon={<ArrowForwardIosIcon />}
+              disabled={departments.length <= 1 || operationLoading}
             >
               Next
             </Button>
-          </Box>
+          </FlexBetween>
 
-          {/* Department Content */}
-          <Box
-            sx={{
-              textAlign: "center",
-              marginBottom: theme.spacing(4),
-              width: "100%",
-            }}
-          >
-            <Typography variant="h2" sx={{ fontWeight: "bold", color: "orangered" }}>
-              {currentDepartment.name || "No department name"}
-            </Typography>
-            <Grid container justifyContent="space-between" alignItems="center">
-              <Grid item>
-                <Typography variant="subtitle1" color="textSecondary">
-                  Head: {currentDepartment.departmentHead?.name || "N/A"} | Total Strength:{" "}
-                  {currentDepartment.totalMembers || "N/A"}
-                </Typography>
-              </Grid>
-              <Grid item>
-                <Typography variant="subtitle1" color="textSecondary">
-                  Rating: {currentDepartment.avgRating || "N/A"} | Profit/Loss:{" "}
-                  <Typography
-                    component="span"
-                    sx={{
-                      color: profitOrLoss >= 0 ? "green" : "red",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {profitOrLoss >= 0 ? "+" : ""}
-                    {profitOrLoss}
-                  </Typography>
-                </Typography>
-              </Grid>
+          <Grid container justifyContent="space-between" alignItems="center" width="100%" mb={2}>
+            <Grid item>
+              <Typography variant="subtitle1" color="textSecondary">
+                Head: {departmentToDisplay.departmentHead?.name || "N/A"} | Members:{" "}
+                {departmentToDisplay.totalMembers || "N/A"}
+              </Typography>
             </Grid>
-          </Box>
+            <Grid item>
+              <Typography variant="subtitle1" color="textSecondary">
+                Rating: {departmentToDisplay.avgRating || "N/A"} | Profit/Loss:{" "}
+                <Typography
+                  component="span"
+                  sx={{ color: profitOrLoss >= 0 ? "green" : "red", fontWeight: "bold" }}
+                >
+                  {profitOrLoss >= 0 ? "+" : ""}{profitOrLoss.toLocaleString()}
+                </Typography>
+              </Typography>
+            </Grid>
+          </Grid>
+          <Divider sx={{ width: '100%', mb: 2 }} />
 
-          {/* Department Details */}
-          <Divider sx={{ marginBottom: theme.spacing(4) }} />
           <Box sx={{ width: "100%" }}>
-            <TableContainer>
-              <Table sx={{ border: `1px solid ${theme.palette.divider}` }}>
-                {/* Table Header */}
+            <TableContainer component={Paper} elevation={0} sx={{ border: `1px solid ${theme.palette.divider}` }}>
+              <Table size="small" >
                 <TableHead>
                   <TableRow sx={{ backgroundColor: theme.palette.primary.main }}>
-                    <TableCell
-                      sx={{
-                        fontWeight: "bold",
-                        textAlign: "center",
-                        border: `1px solid ${theme.palette.divider}`,
-                      }}
-                    >
-                      Category
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        fontWeight: "bold",
-                        textAlign: "center",
-                        border: `1px solid ${theme.palette.divider}`,
-                      }}
-                    >
-                      Details
-                    </TableCell>
+                    <TableCell sx={{ fontWeight: "bold", textAlign: "center", border: `1px solid ${theme.palette.divider}`, color: theme.palette.common.white }}>Category</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", textAlign: "center", border: `1px solid ${theme.palette.divider}`, color: theme.palette.common.white }}>Details</TableCell>
                   </TableRow>
                 </TableHead>
-
-                {/* Table Body */}
                 <TableBody>
                   <TableRow>
-                    <TableCell
-                      sx={{
-                        textAlign: "center",
-                        fontWeight: "bold",
-                        border: `1px solid ${theme.palette.divider}`,
-                      }}
-                    >
-                      Employees
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        textAlign: "center",
-                        border: `1px solid ${theme.palette.divider}`,
-                      }}
-                    >
+                    <TableCell sx={{ textAlign: "center", fontWeight: "bold", border: `1px solid ${theme.palette.divider}` }}>Employees</TableCell>
+                    <TableCell sx={{ textAlign: "center", border: `1px solid ${theme.palette.divider}` }}>
                       <NavLink
-                        to={`/app/employees?departmentId=${currentDepartment._id}`}
-                        style={{
-                          color: theme.palette.primary.main,
-                          textDecoration: "none",
-                          fontWeight: "bold",
-                        }}
+                        to={`/app/employees?departmentId=${departmentToDisplay._id}`}
+                        style={{ color: theme.palette.primary.main, textDecoration: "none", fontWeight: "bold" }}
                       >
-                        View Employees
+                        View Employees ({departmentToDisplay.employees?.length || 0})
                       </NavLink>
                     </TableCell>
                   </TableRow>
-                  {/* Other rows */}
-                  {[{
-                    category: "Current Projects",
-                    data: currentDepartment.currentProjects?.map((proj) => proj.name) || ["No current projects"],
-                  }, {
-                    category: "Clients Allocated",
-                    data: currentDepartment.clientsAllocated?.map((client) => client.name) || ["No clients allocated"],
-                  }].map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell
-                        sx={{
-                          textAlign: "center",
-                          fontWeight: "bold",
-                          border: `1px solid ${theme.palette.divider}`,
-                        }}
-                      >
-                        {row.category}
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          textAlign: "center",
-                          border: `1px solid ${theme.palette.divider}`,
-                        }}
-                      >
-                        {row.data.length > 0 ? (
-                          row.data.map((item, idx) => (
-                            <Typography key={idx} variant="body2">
-                              {item}
-                            </Typography>
-                          ))
-                        ) : (
-                          <Typography color="textSecondary">No data available</Typography>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  <TableRow>
+                    <TableCell sx={{ textAlign: "center", fontWeight: "bold", border: `1px solid ${theme.palette.divider}` }}>Projects</TableCell>
+                    <TableCell sx={{ textAlign: "center", border: `1px solid ${theme.palette.divider}` }}>
+                      {departmentToDisplay.currentProjects?.length > 0
+                        ? departmentToDisplay.currentProjects.map((proj) => (typeof proj === 'object' ? proj.name : proj) || 'Unnamed Project').join(', ')
+                        : "No current projects"}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ textAlign: "center", fontWeight: "bold", border: `1px solid ${theme.palette.divider}` }}>Clients</TableCell>
+                    <TableCell sx={{ textAlign: "center", border: `1px solid ${theme.palette.divider}` }}>
+                      {departmentToDisplay.clientsAllocated?.length > 0
+                        ? departmentToDisplay.clientsAllocated.map((client) => (typeof client === 'object' ? client.name : client) || 'Unnamed Client').join(', ')
+                        : "No clients allocated"}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ textAlign: "center", fontWeight: "bold", border: `1px solid ${theme.palette.divider}` }}>Status</TableCell>
+                    <TableCell sx={{ textAlign: "center", border: `1px solid ${theme.palette.divider}` }}>{departmentToDisplay.status}</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </TableContainer>
           </Box>
-          <FlexBetween>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              style={{ marginTop: "20px", marginRight: "10px", marginLeft: "10px" }}
-              onClick={handleAddDepartment}
-            >
-              Add Department
-            </Button>
-            <Button
-              variant="contained"
-              sx={{ color: "red" }}
-              startIcon={<DeleteIcon />}
-              style={{ marginTop: "20px", marginRight: "10px" }}
-              onClick={handleDeleteCard}
-            >
-              Delete Department
-            </Button>
-            <Button
-              variant="contained"
-              color="info"
-              startIcon={<EditIcon />}
-              style={{ marginTop: "20px" }}
-            >
-              Edit Department
-            </Button>
-          </FlexBetween>
-        </Box>
+
+          {isAdmin && (
+            <FlexBetween style={{ marginTop: "20px" }} width="auto" gap={2}> {/* Used FlexBetween and gap */}
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={handleOpenAddModal} // This opens the Add Modal
+                disabled={operationLoading}
+              >
+                Add Department
+              </Button>
+              <Button
+                variant="contained"
+                color="info"
+                startIcon={<EditIcon />}
+                onClick={handleOpenEditModal} // This opens the Edit Modal
+                disabled={operationLoading}
+              >
+                Edit Department
+              </Button>
+              <Button
+                variant="contained"
+                sx={{ backgroundColor: theme.palette.error.main, color: "white", '&:hover': { backgroundColor: theme.palette.error.dark } }} // Your original styling
+                startIcon={<DeleteIcon />}
+                onClick={handleDeactivateDepartment}
+                disabled={operationLoading || departmentToDisplay.status === 'Inactive'}
+              >
+                Deactivate
+              </Button>
+            </FlexBetween>
+          )}
+        </Paper>
+      ) : (
+        !loading && <Typography>No department to display. Please add one.</Typography> // Message if no department after loading
       )}
     </Box>
   );
 };
 
 export default DepartmentSlider;
-

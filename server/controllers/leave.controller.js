@@ -39,11 +39,7 @@ async function calculateWorkingDays(startDate, endDate, countryCode) {
 
 // --- Controller Functions ---
 
-/**
- * @desc    Apply for a new leave request
- * @route   POST /api/leaves/apply
- * @access  Private (Authenticated Employee)
- */
+
 export const applyLeave = async (req, res, next) => {
     try {
         // Assuming authN middleware provides req.user
@@ -67,21 +63,21 @@ export const applyLeave = async (req, res, next) => {
             if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) throw new Error();
             if (startDt > endDt) return res.status(400).json({ message: "Start date cannot be after end date." });
         } catch (e) {
-            return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD." });
+            return res.status(400).json({ success:false,message: "Invalid date format. Use YYYY-MM-DD." });
         }
 
         // Policy: Disallow starting or ending on a non-working day
         const isStartNonWorking = await CountryCalendar.isNonWorkingDay(startDt, employeeCountry);
         const isEndNonWorking = await CountryCalendar.isNonWorkingDay(endDt, employeeCountry);
         if (isStartNonWorking || isEndNonWorking) {
-             return res.status(400).json({ message: "Leave cannot start or end on a weekend or public holiday." });
+            return res.status(400).json({ success: false, message: "Leave cannot start or end on a weekend or public holiday." });
         }
 
         // Calculate the number of *working* days for the leave request
         const numberOfDays = await calculateWorkingDays(startDt, endDt, employeeCountry);
         if (numberOfDays <= 0) {
              // This can happen if the range only includes non-working days
-             return res.status(400).json({ message: "Selected leave duration does not contain any working days." });
+            return res.status(400).json({ success: false, message: "Selected leave duration does not contain any working days." });
         }
         // --- End Date Validation & Processing ---
 
@@ -89,7 +85,7 @@ export const applyLeave = async (req, res, next) => {
         // --- Balance Check ---
         const balance = await LeaveBalance.findOne({ employee: employeeId });
         if (!balance) {
-            return res.status(404).json({ message: "Leave balance record not found." });
+            return res.status(404).json({ success: false, message: "Leave balance record not found." });
         }
 
         let balanceField = '';
@@ -103,12 +99,12 @@ export const applyLeave = async (req, res, next) => {
             case 'Paternity': balanceField = 'paternityLeaves'; currentBalance = balance.paternityLeaves.current; break;
             case 'Compensatory': balanceField = 'compensatoryLeaves'; currentBalance = balance.compensatoryLeaves.current; break;
             case 'Unpaid': break; // No balance check needed
-            default: return res.status(400).json({ message: "Invalid leave type specified." });
+            default: return res.status(400).json({ success: false, message: "Invalid leave type specified." });
         }
 
         // Perform balance check only for leave types that require it
         if (balanceField && currentBalance < numberOfDays) {
-            return res.status(400).json({ message: `Insufficient ${leaveType} leave balance. Available: ${currentBalance}, Required: ${numberOfDays}` });
+            return res.status(400).json({ success: false, message: `Insufficient ${leaveType} leave balance. Available: ${currentBalance}, Required: ${numberOfDays}` });
         }
         // --- End Balance Check ---
 
@@ -129,12 +125,12 @@ export const applyLeave = async (req, res, next) => {
 
         // TODO: Notify manager logic here
 
-        res.status(201).json({ message: "Leave application submitted successfully.", leave: createdLeave });
+        res.status(201).json({ success: true, message: "Leave application submitted successfully.", leave: createdLeave });
 
     } catch (error) {
         console.error("Error applying for leave:", error);
         // Pass to global error handler or send generic message
-        res.status(500).json({ message: "Server error during leave application.", error: error.message });
+        res.status(500).json({ success: false, message: "Server error during leave application.", error: error.message });
         // next(error); // Alternative: use global error handler
     }
 };
@@ -151,17 +147,17 @@ export const approveLeave = async (req, res, next) => {
         const approverId = req.user._id; // Assuming authN provides the approver's ID
 
         if (!mongoose.Types.ObjectId.isValid(leaveId)) {
-            return res.status(400).json({ message: "Invalid leave ID format." });
+            return res.status(400).json({ success: false, message: "Invalid leave ID format." });
         }
 
         const leave = await Leave.findById(leaveId);
 
         if (!leave) {
-            return res.status(404).json({ message: "Leave request not found." });
+            return res.status(404).json({ success: false, message: "Leave request not found." });
         }
 
         if (leave.status !== 'Pending') {
-             return res.status(400).json({ message: `Leave request is already ${leave.status}. Cannot approve.` });
+            return res.status(400).json({ success: false, message: `Leave request is already ${leave.status}. Cannot approve.` });
         }
 
         // --- Authorization Check (Deferred - Placeholder) ---
@@ -175,7 +171,7 @@ export const approveLeave = async (req, res, next) => {
         const balance = await LeaveBalance.findOne({ employee: leave.employee });
         if (!balance) {
              console.error(`CRITICAL: Leave balance record not found for employee ${leave.employee} during approval.`);
-             return res.status(500).json({ message: "Leave balance record not found for employee. Cannot approve." });
+            return res.status(500).json({ success: false, message: "Leave balance record not found for employee. Cannot approve." });
         }
 
         let balanceField = '';
@@ -188,12 +184,13 @@ export const approveLeave = async (req, res, next) => {
             case 'Paternity': balanceField = 'paternityLeaves'; currentBalance = balance.paternityLeaves.current; break;
             case 'Compensatory': balanceField = 'compensatoryLeaves'; currentBalance = balance.compensatoryLeaves.current; break;
             case 'Unpaid': break;
-            default: return res.status(400).json({ message: "Invalid leave type found in request." });
+            default: return res.status(400).json({ success: false, message: "Invalid leave type found in request." });
         }
 
          if (balanceField && currentBalance < leave.numberOfDays) {
               // Balance might have changed since application, reject approval
-              return res.status(400).json({
+             return res.status(400).json({
+                 success: false,
                   message: `Cannot approve: Insufficient ${leave.leaveType} leave balance. Available: ${currentBalance}, Required: ${leave.numberOfDays}`
               });
          }
@@ -223,21 +220,17 @@ export const approveLeave = async (req, res, next) => {
 
         // TODO: Notify employee logic here
 
-        res.status(200).json({ message: "Leave request approved successfully.", leave: updatedLeave });
+        res.status(200).json({ success: true, message: "Leave request approved successfully.", leave: updatedLeave });
 
     } catch (error) {
         console.error("Error approving leave:", error);
-        res.status(500).json({ message: "Server error during leave approval.", error: error.message });
+        res.status(500).json({ success: false, message: "Server error during leave approval.", error: error.message });
         // next(error);
     }
 };
 
 
-/**
- * @desc    Reject a pending leave request
- * @route   PUT /api/leaves/:leaveId/reject
- * @access  Private (Manager/HR/Admin - Requires Authorization)
- */
+
 export const rejectLeave = async (req, res, next) => {
      try {
         const { leaveId } = req.params;
@@ -245,21 +238,21 @@ export const rejectLeave = async (req, res, next) => {
         const rejectorId = req.user._id; // Assuming authN middleware provides user ID
 
         if (!rejectionReason) {
-            return res.status(400).json({ message: "Rejection reason is required." });
+            return res.status(400).json({ success: false, message: "Rejection reason is required." });
         }
 
         if (!mongoose.Types.ObjectId.isValid(leaveId)) {
-            return res.status(400).json({ message: "Invalid leave ID format." });
+            return res.status(400).json({ success: false, message: "Invalid leave ID format." });
         }
 
         const leave = await Leave.findById(leaveId);
 
         if (!leave) {
-            return res.status(404).json({ message: "Leave request not found." });
+            return res.status(404).json({ success: false, message: "Leave request not found." });
         }
 
          if (leave.status !== 'Pending') {
-              return res.status(400).json({ message: `Leave request is already ${leave.status}. Cannot reject.` });
+             return res.status(400).json({ success: false, message: `Leave request is already ${leave.status}. Cannot reject.` });
          }
 
         // --- Authorization Check (Deferred - Placeholder) ---
@@ -277,11 +270,11 @@ export const rejectLeave = async (req, res, next) => {
 
         // TODO: Notify employee logic here
 
-        res.status(200).json({ message: "Leave request rejected.", leave: updatedLeave });
+         res.status(200).json({ success: true, message: "Leave request rejected.", leave: updatedLeave });
 
     } catch (error) {
         console.error("Error rejecting leave:", error);
-        res.status(500).json({ message: "Server error during leave rejection.", error: error.message });
+         res.status(500).json({ success: false, message: "Server error during leave rejection.", error: error.message });
         // next(error);
     }
 };
@@ -361,6 +354,8 @@ export const getLeaveHistory = async (req, res, next) => {
         const totalLeaves = await Leave.countDocuments(query);
 
         res.status(200).json({
+            success: true,
+            message:'leave history fetched',
             count: leaves.length,
             total: totalLeaves,
             page,
@@ -370,7 +365,7 @@ export const getLeaveHistory = async (req, res, next) => {
 
     } catch (error) {
         console.error("Error fetching leave history:", error);
-        res.status(500).json({ message: "Server error fetching leave history.", error: error.message });
+        res.status(500).json({ success: false, message: "Server error fetching leave history.", error: error.message });
         // next(error);
     }
 };
@@ -391,7 +386,7 @@ export const getLeaveBalance = async (req, res, next) => {
         if (req.params.employeeId) {
             // Basic check: ensure param is valid ObjectId before proceeding
              if (!mongoose.Types.ObjectId.isValid(req.params.employeeId)) {
-                  return res.status(400).json({ message: "Invalid employee ID format in URL." });
+                 return res.status(400).json({ success: false, message: "Invalid employee ID format in URL." });
              }
              // TODO: Add check: Is req.user Admin/HR OR is req.user the manager of req.params.employeeId?
              // If not authorized: return res.status(403).json({ message: "Forbidden to access this balance." });
@@ -406,17 +401,17 @@ export const getLeaveBalance = async (req, res, next) => {
              // If balance doesn't exist, maybe create it? Or just report not found.
              // For now, report not found. Creation could be part of employee onboarding.
              console.log(`Leave balance record not found for employee: ${employeeIdToFetch}`);
-             return res.status(404).json({ message: "Leave balance record not found for this employee." });
+             return res.status(404).json({ success: false, message: "Leave balance record not found for this employee." });
          }
 
          // NOTE: We are NOT calling balance.performYearEndUpdate() here in a GET request.
          // That should be handled by a scheduled job or a dedicated admin action.
 
-         res.status(200).json(balance);
+         res.status(200).json({ success: true, message: 'Leave balance is', balance });
 
      } catch (error) {
          console.error("Error fetching leave balance:", error);
-         res.status(500).json({ message: "Server error fetching leave balance.", error: error.message });
+         res.status(500).json({ success: false, message: "Server error fetching leave balance.", error: error.message });
          // next(error);
      }
 };
@@ -435,25 +430,25 @@ export const cancelLeave = async (req, res, next) => {
         const employeeId = req.user._id; // ID of the employee cancelling the request
 
         if (!mongoose.Types.ObjectId.isValid(leaveId)) {
-            return res.status(400).json({ message: "Invalid leave ID format." });
+            return res.status(400).json({ success: false, message: "Invalid leave ID format." });
         }
 
         const leave = await Leave.findById(leaveId);
 
         if (!leave) {
-            return res.status(404).json({ message: "Leave request not found." });
+            return res.status(404).json({ success: false, message: "Leave request not found." });
         }
 
         // --- Authorization Check: Ensure the requester owns this leave ---
         if (leave.employee.toString() !== employeeId.toString()) {
             console.warn(`Forbidden: User ${employeeId} attempted to cancel leave ${leaveId} owned by ${leave.employee}`);
-            return res.status(403).json({ message: "Forbidden: You can only cancel your own leave requests." });
+            return res.status(403).json({ success: false, message: "Forbidden: You can only cancel your own leave requests." });
         }
         // --- End Authorization Check ---
 
         // --- Status Check: Can only cancel Pending or Approved leaves ---
         if (!['Pending', 'Approved'].includes(leave.status)) {
-            return res.status(400).json({ message: `Cannot cancel leave request with status '${leave.status}'.` });
+            return res.status(400).json({ success: false, message: `Cannot cancel leave request with status '${leave.status}'.` });
         }
         // --- End Status Check ---
 
@@ -510,11 +505,11 @@ export const cancelLeave = async (req, res, next) => {
 
         // TODO: Notify manager logic here (optional, notify that leave was cancelled)
 
-        res.status(200).json({ message: "Leave request cancelled successfully.", leave: updatedLeave });
+        res.status(200).json({ success: true, message: "Leave request cancelled successfully.", leave: updatedLeave });
 
     } catch (error) {
         console.error("Error cancelling leave:", error);
-        res.status(500).json({ message: "Server error during leave cancellation.", error: error.message });
+        res.status(500).json({ success: false, message: "Server error during leave cancellation.", error: error.message });
         // next(error);
     }
 };

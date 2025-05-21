@@ -1,20 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FaRegEye, FaRegEyeSlash } from "react-icons/fa";
 import { Link, useNavigate } from 'react-router-dom';
-import { Box, Grid, TextField, Typography, Button, InputAdornment, IconButton, Paper } from '@mui/material';
+import { Box, Grid, TextField, Typography, Button, InputAdornment, IconButton, Paper, Divider } from '@mui/material';
+import { useDispatch, useSelector } from 'react-redux';
+import { loginUser, clearAuthError } from '../../redux/Slices/authSlice';
+import { toast } from 'react-hot-toast';
 import formImage from '../../assets/form.jpg';
-import toast from 'react-hot-toast';
-import axios from 'axios';
 
 const Login = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: ""
   });
-  const URL = "http://localhost:4000/auth/login";
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const [loginToastShown, setLoginToastShown] = useState(false);
 
+  // Get auth state from Redux
+  const { loading, error, isAuthenticated, user } = useSelector((state) => state.auth);
+
+  // Handle form input changes
   const changeHandler = (event) => {
     const { name, value } = event.target;
     setFormData((prevData) => ({
@@ -23,39 +29,37 @@ const Login = () => {
     }));
   };
 
+  // Handle form submission
   const loginHandler = async (event) => {
     event.preventDefault();
-
-    try {
-      const response = await axios.post(URL, formData);
-
-      if (response.status === 200) {
-        const { token, user } = response.data;
-        toast.success("Login successful!");
-
-        // Save token and user details in localStorage
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('user', JSON.stringify(user));
-
-        // Reset form and navigate
-        setFormData({
-          email: "",
-          password: ""
-        });
-        navigate("/app/dashboard");
-      } else {
-        toast.error(response.data.message || "Invalid credentials.");
-      }
-      if (response.data.token) {
-          localStorage.setItem('authToken', response.data.token);
-          localStorage.setItem('user', JSON.stringify(response.data.user));
-          // console.log("Decoded token", response.data.user);
-      }
-    } catch (error) {
-      console.error("Login Error:", error);
-      toast.error(error.response?.data?.message || "An error occurred while logging in. Please try again.");
-    }
+    dispatch(loginUser(formData));
   };
+
+  // Handle Google login (direct redirect)
+  const handleGoogleLogin = () => {
+    window.location.href = `${import.meta.env.VITE_BASE_URL}/api/v1/auth/google`;
+  };
+
+  // Handle navigation after successful login
+  useEffect(() => {
+    if (isAuthenticated && user && !loginToastShown) {
+      toast.success("Login successful!");
+      setLoginToastShown(true);
+      if (!user.isProfileComplete) {
+        navigate("/app/complete-profile");
+      } else {
+        navigate("/app/dashboard");
+      }
+    }
+  }, [isAuthenticated, user, navigate, loginToastShown]);
+
+  // Handle error messages
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearAuthError());
+    }
+  }, [error, dispatch]);
 
   return (
     <Box
@@ -102,6 +106,7 @@ const Login = () => {
                 onChange={changeHandler}
                 placeholder="Enter your Email Address"
                 sx={{ marginBottom: 5 }}
+                disabled={loading}
               />
               <TextField
                 label="Password"
@@ -113,10 +118,14 @@ const Login = () => {
                 value={formData.password}
                 onChange={changeHandler}
                 placeholder="Enter your password"
+                disabled={loading}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => setShowPassword((prev) => !prev)}>
+                      <IconButton
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        disabled={loading}
+                      >
                         {showPassword ? <FaRegEye /> : <FaRegEyeSlash />}
                       </IconButton>
                     </InputAdornment>
@@ -125,7 +134,7 @@ const Login = () => {
                 sx={{ marginBottom: 2 }}
               />
               <Link
-                to="#"
+                to="/forgot-password"
                 style={{
                   display: 'block',
                   marginBottom: 12,
@@ -141,9 +150,35 @@ const Login = () => {
                 variant="contained"
                 color="primary"
                 fullWidth
-                sx={{ padding: 1.5, marginTop: "10px" }}
+                disabled={loading}
+                sx={{ padding: 1.5, marginBottom: 2 }}
               >
-                Log In
+                {loading ? 'Logging in...' : 'Log In'}
+              </Button>
+
+              <Divider sx={{ my: 2 }}>OR</Divider>
+
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                sx={{
+                  padding: 1.5,
+                  backgroundColor: '#fff',
+                  '&:hover': {
+                    backgroundColor: '#f5f5f5',
+                  }
+                }}
+                startIcon={
+                  <img
+                    src="https://www.google.com/favicon.ico"
+                    alt="Google"
+                    style={{ width: 20, height: 20 }}
+                  />
+                }
+              >
+                Continue with Google
               </Button>
             </form>
           </Grid>

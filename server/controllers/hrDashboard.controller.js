@@ -1,12 +1,10 @@
-// server/controllers/dashboardController.js
 
-// ... other imports ...
 import Employee from '../models/employeeSchema.js';
-import Department from '../models/departmentSchema.js'; // Needed for employeesByDepartment
+import Department from '../models/departmentSchema.js'; 
 import LeaveRequest from '../models/leaveRequest.model.js';
 import ReviewCycle from '../models/reviewCycle.model.js';
 import PerformanceReview from '../models/employeePerformanceSchema.js';
-import Announcement from '../models/announcement.model.js'; // Uncommented
+import Announcement from '../models/announcement.model.js'; 
 // import OnboardingTask from '../models/onboardingTask.model.js'; // TODO: If onboarding module exists
 
 

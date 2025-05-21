@@ -4,7 +4,7 @@ import Employee from '../models/employeeSchema.js';
 
 export const authN = async (req, res, next) => {
     try {
-
+     
         const token = req.header('Authorization')?.replace('Bearer ', '') ||
                       req.cookies.token ||
                       req.body.token;
