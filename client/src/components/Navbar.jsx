@@ -4,7 +4,6 @@ import {
   DarkModeOutlined,
   Menu as MenuIcon,
   Search,
-  SettingsOutlined,
   ArrowDropDownOutlined,
 } from '@mui/icons-material';
 import FlexBetween from './FlexBetween';
@@ -22,47 +21,56 @@ import {
   MenuItem,
   useTheme,
 } from '@mui/material';
+
 import profileimg from '../assets/profileimg.jpg';
-import { jwtDecode } from 'jwt-decode';
+
+// Redux
+import { useDispatch } from 'react-redux';
+import { setMode } from '../redux/Slices/themeSlice';
 
 const Navbar = ({ isSidebarOpen, setIsSidebarOpen }) => {
   const navigate = useNavigate();
   const theme = useTheme();
+  const dispatch = useDispatch();
   const [anchorEl, setAnchorEl] = useState(null);
   const [user, setUser] = useState({ name: '', role: '' });
   const isOpen = Boolean(anchorEl);
 
   useEffect(() => {
-    const userDataString = localStorage.getItem("worksphereUser"); // CORRECT KEY
+    const userDataString = localStorage.getItem('worksphereUser');
     if (userDataString) {
       try {
         const userData = JSON.parse(userDataString);
         setUser({
-          name: userData.name || "User",
-          role: userData.role || "Role",
+          name: userData.name || 'User',
+          role: userData.role || 'Role',
         });
       } catch (e) {
-        console.error("Navbar: Failed to parse user data from localStorage", e);
-        setUser({ name: "User", role: "Role" }); // Fallback
+        console.error('Navbar: Failed to parse user data from localStorage', e);
+        setUser({ name: 'User', role: 'Role' });
       }
     } else {
-      console.warn("Navbar: 'worksphereUser' not found in localStorage. Displaying default user info.");
-      setUser({ name: "User", role: "Role" }); // Fallback
-      // navigate("/login"); // <<< REMOVE THIS LINE
+      console.warn("Navbar: 'worksphereUser' not found in localStorage.");
+      setUser({ name: 'User', role: 'Role' });
     }
-    // }, [navigate]); // Consider if 'navigate' is truly needed if you remove the navigation call.
-    // If only setting local state, it might just need to run once:
-  }, []); // Run once on mount to get user display info
+  }, []);
 
-  function handleClick(event) {
-    setAnchorEl(event.currentTarget);
-  }
+  const handleClick = (event) => setAnchorEl(event.currentTarget);
 
-  function handleClose() {
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/home');
     setAnchorEl(null);
-  }
+  };
+
+  const handleViewProfile = () => {
+    navigate('/app/profile');
+    setAnchorEl(null);
+  };
 
   return (
     <AppBar
@@ -72,25 +80,52 @@ const Navbar = ({ isSidebarOpen, setIsSidebarOpen }) => {
         boxShadow: 'none',
       }}
     >
-      <Toolbar sx={{ justifyContent: 'space-between' }}>
+      <Toolbar
+        sx={{
+          color: theme.palette.mode === 'dark' ? '#FFFFFF' : '#111827',
+          justifyContent: 'space-between',
+          transition: 'all 0.3s ease',
+        }}
+      >
+        {/* Left Section */}
         <FlexBetween>
           <IconButton onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
             <MenuIcon />
           </IconButton>
           <FlexBetween
-            backgroundColor={theme.palette.background.alt}
+            backgroundColor={theme.palette.background.paper}
             borderRadius="9px"
             gap="3rem"
             p="0.1rem 1.5rem"
           >
             <InputBase placeholder="Search..." />
-            <IconButton>
+            <IconButton sx={{
+              color: theme.palette.mode === 'light'
+                ? theme.palette.text.primary
+                : '#fff',
+            }}>
               <Search />
             </IconButton>
           </FlexBetween>
         </FlexBetween>
 
         <FlexBetween gap="1.5rem">
+          <IconButton
+            onClick={() => dispatch(setMode())}
+            sx={{
+              color: theme.palette.mode === 'light'
+                ? theme.palette.text.primary
+                : '#fff',
+            }}
+          >
+            {theme.palette.mode === 'dark' ? (
+              <DarkModeOutlined sx={{ fontSize: '25px' }} />
+            ) : (
+              <LightModeOutlined sx={{ fontSize: '25px' }} />
+            )}
+          </IconButton>
+
+          {/* Profile Dropdown */}
           <FlexBetween>
             <Button
               onClick={handleClick}
@@ -136,7 +171,8 @@ const Navbar = ({ isSidebarOpen, setIsSidebarOpen }) => {
               onClose={handleClose}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             >
-              <MenuItem onClick={handleClose}>Log Out</MenuItem>
+              <MenuItem onClick={handleViewProfile}>View Profile</MenuItem>
+              <MenuItem onClick={handleLogout}>Log Out</MenuItem>
             </Menu>
           </FlexBetween>
         </FlexBetween>
@@ -146,4 +182,3 @@ const Navbar = ({ isSidebarOpen, setIsSidebarOpen }) => {
 };
 
 export default Navbar;
-

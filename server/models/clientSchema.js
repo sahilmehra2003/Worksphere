@@ -42,18 +42,18 @@ const clientSchema = new mongoose.Schema({
   project:[{
     type:mongoose.Schema.Types.ObjectId,
     ref:"Project",
-    default:null
+    default: []
   }],
   projectTeam:[{
     type:mongoose.Schema.Types.ObjectId,
     ref:"ProjectTeam",
-    default:null
+    default: []
   }],
   department:[
     {
        type:mongoose.Schema.Types.ObjectId,
        ref:"Department",
-       default:null
+       default: []
     }
   ],
   status:{
@@ -64,13 +64,14 @@ const clientSchema = new mongoose.Schema({
     type: Number,
     default: null,
     validate: {
+      
       validator: function (value) {
         if (this.status && (value === null || value <= 0)) {
           return false;
         }
         return true;
       },
-      message: "Total contribution must be a positive number when the project is finished",
+      message: "Payment after completion must be a positive number if client status indicates completion/finalization.",
     },
   },
 },{ timestamps: true }

@@ -32,7 +32,6 @@ router.put('/complete-profile', authN, completeExistingUserProfile);
 
 
 
-
 // Employee can view all employees (but with limited info)
 router.get('/employees', authN, isAdminOrEmployee, getAllEmployees);
 // forgot password

@@ -1,19 +1,18 @@
+// src/redux/Slices/calenderSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { apiConnector } from '../../services/apiConnector';
 import { CALENDAR_ENDPOINTS } from '../../services/apiEndpoints';
 
 const initialState = {
-    configuredCalendars: [],
-    currentCalendarDetails: null, 
-    loadingList: false, 
-    loadingDetails: false, 
-    operationLoading: false, 
-    error: null,
-    operationError: null,
+    configuredCalendars: [],    // Stores { _id, country }
+    currentCalendarDetails: null, // Stores { _id, country, year, holidays: [], weekends: [] }
+    loadingList: false,
+    loadingDetails: false,
+    operationLoading: false,
+    error: null, // For fetchAllConfigured and fetchDetails errors
+    operationError: null, // For CUD operations errors
     operationSuccess: false,
 };
-
-
 
 // 1. Fetch All Configured Calendars (List of countries)
 export const fetchAllConfiguredCalendars = createAsyncThunk(
@@ -21,8 +20,11 @@ export const fetchAllConfiguredCalendars = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await apiConnector('GET', CALENDAR_ENDPOINTS.GET_ALL_CONFIGURED_CALENDARS_API);
-            // Your controller returns an array of { _id, country } directly
-            return response.data;
+            // Controller getAllCountryCalendars returns { success, message, data: calendars_array }
+            if (response.data && response.data.success && Array.isArray(response.data.data)) {
+                return response.data.data; // Return the array of { _id, country }
+            }
+            return rejectWithValue(response.data?.message || 'Failed to fetch configured calendars: Unexpected response.');
         } catch (error) {
             const message = error.response?.data?.message || error.message || 'Failed to fetch configured calendars.';
             return rejectWithValue(message);
@@ -36,33 +38,43 @@ export const fetchCountryCalendarDetails = createAsyncThunk(
     async (countryCode, { rejectWithValue }) => {
         try {
             const response = await apiConnector('GET', CALENDAR_ENDPOINTS.GET_COUNTRY_CALENDAR_DETAILS_API(countryCode));
-            // Your controller returns the full calendar object directly if found
-            return response.data;
+            // Controller getCountryCalendar returns { success, message, data: calendarObject }
+            if (response.data && response.data.success && response.data.data) {
+                return response.data.data; // Return the full calendar object
+            }
+            // Handle case where calendar might not be found (404) but success might be false
+            if (response.data && response.data.success === false) {
+                return rejectWithValue(response.data.message || `Calendar not found for ${countryCode}.`);
+            }
+            return rejectWithValue(`Failed to fetch calendar details for ${countryCode}: Unexpected response.`);
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to fetch calendar details.';
+            const message = error.response?.data?.message || error.message || `Failed to fetch calendar details for ${countryCode}.`;
+            // If API call itself fails (e.g. 404 not caught as success:false), this will handle it
+            if (error.response?.status === 404) {
+                return rejectWithValue(`Calendar for ${countryCode} not found.`);
+            }
             return rejectWithValue(message);
         }
     }
 );
 
 // 3. Upsert (Create or Update) a Country Calendar
-// This involves fetching holidays from Calendarific and saving/updating in DB.
 export const upsertCountryCalendar = createAsyncThunk(
     'calendar/upsert',
-    async (calendarData, { dispatch, getState, rejectWithValue }) => { // calendarData = { country, year (optional), weekends (optional) }
+    async (calendarData, { dispatch, getState, rejectWithValue }) => {
         try {
             const response = await apiConnector('POST', CALENDAR_ENDPOINTS.UPSERT_COUNTRY_CALENDAR_API, calendarData);
-            // Controller returns { success, message, calendar }
-            if (!response.data.success) {
+            // Controller returns { success, message, data: updatedCalendar }
+            if (!response.data.success || !response.data.data) {
                 return rejectWithValue(response.data.message || 'Failed to upsert calendar.');
             }
-            // After upserting, refresh the list of configured calendars and potentially the current details
-            dispatch(fetchAllConfiguredCalendars());
+            dispatch(fetchAllConfiguredCalendars()); // Refresh list
             const state = getState().calendar;
-            if (state.currentCalendarDetails?.country === response.data.calendar.country) { // If current was updated
-                dispatch(fetchCountryCalendarDetails(response.data.calendar.country));
+            // Use country from response.data.data (the updated calendar object)
+            if (state.currentCalendarDetails?.country === response.data.data.country) {
+                dispatch(fetchCountryCalendarDetails(response.data.data.country));
             }
-            return response.data; // { success, message, calendar }
+            return response.data; // { success, message, data: updatedCalendar }
         } catch (error) {
             const message = error.response?.data?.message || error.message || 'Failed to upsert calendar.';
             return rejectWithValue(message);
@@ -76,16 +88,14 @@ export const deleteCountryCalendar = createAsyncThunk(
     async (countryCode, { dispatch, getState, rejectWithValue }) => {
         try {
             const response = await apiConnector('DELETE', CALENDAR_ENDPOINTS.DELETE_COUNTRY_CALENDAR_API(countryCode));
-            // Controller returns { message } on success
-            if (response.status === 200 || response.data?.message) { // Check status or message for success
-                dispatch(fetchAllConfiguredCalendars()); // Refresh list
-                // If the deleted calendar was the current one, clear its details
-                // This needs access to current state, best handled in extraReducer or by component logic
+            // Controller returns { success: true, message: ... }
+            if (response.data && response.data.success) {
+                dispatch(fetchAllConfiguredCalendars());
                 const state = getState().calendar;
                 if (state.currentCalendarDetails?.country === countryCode) {
-                    // This will be handled in the fulfilled matcher
+                    // Handled by matcher to set currentCalendarDetails to null
                 }
-                return { countryCode, message: response.data.message };
+                return { countryCode, message: response.data.message }; // Pass countryCode for matcher
             }
             return rejectWithValue(response.data?.message || 'Failed to delete country calendar.');
         } catch (error) {
@@ -95,22 +105,21 @@ export const deleteCountryCalendar = createAsyncThunk(
     }
 );
 
-// 5. Add a Custom Holiday to a Country's Calendar
+// 5. Add a Custom Holiday
 export const addCustomHoliday = createAsyncThunk(
     'calendar/addHoliday',
     async ({ countryCode, holidayData }, { dispatch, getState, rejectWithValue }) => {
         try {
             const response = await apiConnector('POST', CALENDAR_ENDPOINTS.ADD_CUSTOM_HOLIDAY_API(countryCode), holidayData);
-            // Controller returns { success, message, calendar (updated) }
-            if (!response.data.success) {
+            // Controller returns { success, message, data: updatedCalendar }
+            if (!response.data.success || !response.data.data) {
                 return rejectWithValue(response.data.message || 'Failed to add holiday.');
             }
-            // Refresh the details of the current calendar if it matches
             const state = getState().calendar;
-            if (state.currentCalendarDetails?.country === countryCode) { // Access state carefully in thunk
-                dispatch(fetchCountryCalendarDetails(countryCode));
+            if (state.currentCalendarDetails?.country === countryCode) {
+                dispatch(fetchCountryCalendarDetails(countryCode)); // Refresh details
             }
-            return response.data;
+            return response.data; // { success, message, data: updatedCalendar }
         } catch (error) {
             const message = error.response?.data?.message || error.message || 'Failed to add holiday.';
             return rejectWithValue(message);
@@ -118,22 +127,22 @@ export const addCustomHoliday = createAsyncThunk(
     }
 );
 
-// 6. Delete a Holiday from a Country's Calendar
+// 6. Delete a Holiday
 export const deleteHoliday = createAsyncThunk(
     'calendar/deleteHoliday',
     async ({ countryCode, holidayId }, { dispatch, getState, rejectWithValue }) => {
         try {
             const response = await apiConnector('DELETE', CALENDAR_ENDPOINTS.DELETE_HOLIDAY_API(countryCode, holidayId));
-            // Controller returns { success, message, calendar (updated) }
+            // Controller returns { success, message } (does not return updated calendar)
             if (!response.data.success) {
                 return rejectWithValue(response.data.message || 'Failed to delete holiday.');
             }
-            // Refresh the details of the current calendar if it matches
             const state = getState().calendar;
-            if (state.currentCalendarDetails?.country === countryCode) { // Access state carefully in thunk
-                dispatch(fetchCountryCalendarDetails(countryCode));
+            if (state.currentCalendarDetails?.country === countryCode) {
+                dispatch(fetchCountryCalendarDetails(countryCode)); // Refresh details
             }
-            return response.data;
+            // Return what the backend sent, plus holidayId for potential UI updates
+            return { ...response.data, holidayId, countryCode };
         } catch (error) {
             const message = error.response?.data?.message || error.message || 'Failed to delete holiday.';
             return rejectWithValue(message);
@@ -145,15 +154,13 @@ const calendarSlice = createSlice({
     name: 'calendar',
     initialState,
     reducers: {
-        setSelectedCalendarCountry: (state, action) => { // To trigger detail fetch from component
-            const countryCode = action.payload;
-            const found = state.configuredCalendars.find(cal => cal.country === countryCode);
-            if (found) {
-                // Component should dispatch fetchCountryCalendarDetails(countryCode)
-            }
-            // For now, just clear details if country changes or not found, let thunk populate
-            state.currentCalendarDetails = null;
-        },
+        // This reducer is intended for the component to manage its local 'selectedCountry'
+        // and then trigger fetchCountryCalendarDetails. The slice doesn't need to store
+        // a 'selectedCountry' if currentCalendarDetails.country serves that purpose.
+        // For now, we'll keep it simple, component handles its own selectedCountry state.
+        // setSelectedCalendarCountry: (state, action) => {
+        // state.currentCalendarDetails = null; // Clear details when selection changes, before new fetch
+        // },
         clearCalendarOperationStatus: (state) => {
             state.operationLoading = false;
             state.operationError = null;
@@ -169,12 +176,7 @@ const calendarSlice = createSlice({
             })
             .addCase(fetchAllConfiguredCalendars.fulfilled, (state, action) => {
                 state.loadingList = false;
-                state.configuredCalendars = action.payload || [];
-                // Optionally set the first calendar as current if list is not empty and no current one selected
-                if (state.configuredCalendars.length > 0 && !state.currentCalendarDetails) {
-                    // This logic is better handled by the component:
-                    // component dispatches fetchCountryCalendarDetails(state.configuredCalendars[0].country)
-                }
+                state.configuredCalendars = action.payload || []; // Payload is the array of calendars { _id, country }
             })
             .addCase(fetchAllConfiguredCalendars.rejected, (state, action) => {
                 state.loadingList = false;
@@ -185,19 +187,20 @@ const calendarSlice = createSlice({
             // Fetch Country Calendar Details
             .addCase(fetchCountryCalendarDetails.pending, (state) => {
                 state.loadingDetails = true;
-                state.error = null; // Or operationError
+                state.error = null;
+                state.currentCalendarDetails = null; // Clear previous details while loading new ones
             })
             .addCase(fetchCountryCalendarDetails.fulfilled, (state, action) => {
                 state.loadingDetails = false;
-                state.currentCalendarDetails = action.payload;
+                state.currentCalendarDetails = action.payload; // Payload is the calendar object
             })
             .addCase(fetchCountryCalendarDetails.rejected, (state, action) => {
                 state.loadingDetails = false;
-                state.error = action.payload; // Or operationError
+                state.error = action.payload;
                 state.currentCalendarDetails = null;
             })
 
-            // Common handling for operations (Upsert, Delete Country, Add Holiday, Delete Holiday)
+            // Matchers for CUD operations
             .addMatcher(
                 (action) => [
                     upsertCountryCalendar.pending.type,
@@ -221,12 +224,15 @@ const calendarSlice = createSlice({
                 (state, action) => {
                     state.operationLoading = false;
                     state.operationSuccess = true;
-                    // List/details re-fetching is handled within the thunks by dispatching other actions
+                    // Re-fetching logic is now primarily inside the thunks.
+                    // Specific logic for deleteCountryCalendar to clear current view if it was the one deleted:
                     if (action.type === deleteCountryCalendar.fulfilled.type) {
                         if (state.currentCalendarDetails?.country === action.payload.countryCode) {
-                            state.currentCalendarDetails = null; // Clear if current was deleted
+                            state.currentCalendarDetails = null;
                         }
                     }
+                    // If upsert updated the current calendar, it's re-fetched by the thunk.
+                    // If add/delete holiday affected current calendar, it's re-fetched by the thunk.
                 }
             )
             .addMatcher(
@@ -238,12 +244,14 @@ const calendarSlice = createSlice({
                 ].includes(action.type),
                 (state, action) => {
                     state.operationLoading = false;
-                    state.operationError = action.payload;
+                    state.operationError = action.payload; // This is the error message from rejectWithValue
+                    state.operationSuccess = false;
                 }
             );
     },
 });
 
-export const { setSelectedCalendarCountry, clearCalendarOperationStatus } = calendarSlice.actions;
+
+export const { clearCalendarOperationStatus } = calendarSlice.actions;
 
 export default calendarSlice.reducer;

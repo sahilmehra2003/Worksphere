@@ -12,7 +12,7 @@ export const AUTH_ENDPOINTS = {
     GOOGLE_AUTH_INIT_API: createUrl('/auth/google'),
     GOOGLE_AUTH_CALLBACK_API: createUrl('/auth/google/callback'),
     REFRESH_TOKEN_API: createUrl('/auth/refresh-token'),
-    
+
 };
 
 
@@ -121,18 +121,31 @@ export const TRANSACTION_ENDPOINTS = {
 };
 
 export const PROJECT_ENDPOINTS = {
+
     GET_ALL_PROJECTS_API: createUrl('/projectData/projects'),
     GET_PROJECT_BY_ID_API: (projectId) => createUrl(`/projectData/projects/${projectId}`),
     CREATE_PROJECT_API: createUrl('/projectData/projects/create'),
-    UPDATE_PROJECT_API: (projectId) => createUrl(`/projectData/projects/update/${projectId}`),
-    DELETE_PROJECT_API: (projectId) => createUrl(`/projectData/projects/delete/${projectId}`),
+    UPDATE_PROJECT_API: (projectId) => createUrl(`/projectData/projects/${projectId}`),
+    DELETE_PROJECT_API: (projectId) => createUrl(`/projectData/projects/${projectId}`),
+    ADD_PROJECT_TEAM_API: (projectId) => createUrl(`/projectData/projects/${projectId}/add-team`),
+    REMOVE_PROJECT_TEAM_API: (projectId) => createUrl(`/projectData/projects/${projectId}/remove-team`),
+    ADD_PROJECT_CLIENT_API: (projectId) => createUrl(`/projectData/projects/${projectId}/add-client`),
+    REMOVE_PROJECT_CLIENT_API: (projectId) => createUrl(`/projectData/projects/${projectId}/remove-client`),
 };
 
 export const DASHBOARD_ENDPOINTS = {
+    // Role-specific endpoints
     GET_EMPLOYEE_DASHBOARD_API: createUrl('/dashboardRoutes/employee-summary'),
     GET_MANAGER_DASHBOARD_API: createUrl('/dashboardRoutes/manager-summary'),
     GET_ADMIN_DASHBOARD_API: createUrl('/dashboardRoutes/admin-summary'),
     GET_HR_DASHBOARD_API: createUrl('/dashboardRoutes/hr-summary'),
+
+    // Common dashboard endpoints
+    GET_COMMON_DASHBOARD_API: createUrl('/dashboardRoutes/common-data'),
+    GET_RECENT_ACTIVITIES_API: createUrl('/dashboardRoutes/recent-activities'),
+    GET_NOTIFICATIONS_API: createUrl('/dashboardRoutes/notifications'),
+    MARK_NOTIFICATION_READ_API: (notificationId) => createUrl(`/dashboardRoutes/notifications/${notificationId}/read`),
+    CLEAR_ALL_NOTIFICATIONS_API: createUrl('/dashboardRoutes/notifications/clear-all'),
 };
 
 
@@ -145,4 +158,14 @@ export const ANNOUNCEMENT_ENDPOINTS = {
     PUBLISH_ANNOUNCEMENT_API: (announcementId) => createUrl(`/announcementRoutes/${announcementId}/publish`),
     ARCHIVE_ANNOUNCEMENT_API: (announcementId) => createUrl(`/announcementRoutes/${announcementId}/archive`),
     GET_ACTIVE_ANNOUNCEMENTS_USER_API: createUrl('/announcementRoutes/active'),
+};
+
+export const TEAM_ENDPOINTS = {
+    GET_ALL_TEAMS_API: createUrl('/teamRoutes/teams'),
+    GET_TEAM_BY_ID_API: (teamId) => createUrl(`/teamRoutes/teams/${teamId}`),
+    CREATE_TEAM_API: createUrl('/teamRoutes/teams'),
+    UPDATE_TEAM_API: (teamId) => createUrl(`/teamRoutes/teams/${teamId}`),
+    DELETE_TEAM_API: (teamId) => createUrl(`/teamRoutes/teams/${teamId}`),
+    ADD_TEAM_MEMBER_API: (teamId) => createUrl(`/teamRoutes/teams/${teamId}/members`),
+    REMOVE_TEAM_MEMBER_API: (teamId) => createUrl(`/teamRoutes/teams/${teamId}/members`),
 };

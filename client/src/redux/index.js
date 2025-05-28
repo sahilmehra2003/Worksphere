@@ -1,7 +1,7 @@
-import { combineReducers } from '@reduxjs/toolkit'; 
-import themeReducer from  './Slices/themeSlice';
-import authReducer from './Slices/authSlice';        
-import employeeReducer from './Slices/employeeSlice';   
+import { combineReducers } from '@reduxjs/toolkit';
+import themeReducer from './Slices/themeSlice';
+import authReducer from './Slices/authSlice';
+import employeeReducer from './Slices/employeeSlice';
 import departmentReducer from './Slices/departmentSlice';
 import leaveReducer from './Slices/leaveSlice';
 import taskReducer from './Slices/taskSlice';
@@ -14,6 +14,7 @@ import dashboardReducer from './Slices/dashboardSlice'
 import announcementReducer from './Slices/announcementSlice'
 import timesheetReducer from './Slices/timeSheetSlice'
 import reviewCycleReducer from './Slices/reviewCycleSlice'
+import projectTeamReducer from './Slices/projectTeamSlice'
 
 const rootReducer = combineReducers({
     theme: themeReducer,
@@ -30,7 +31,8 @@ const rootReducer = combineReducers({
     dashboard: dashboardReducer,
     announcement: announcementReducer,
     timesheet: timesheetReducer,
-    reviewCycle:reviewCycleReducer
+    reviewCycle: reviewCycleReducer,
+    projectTeam: projectTeamReducer
     // ... add other reducers here
 });
 

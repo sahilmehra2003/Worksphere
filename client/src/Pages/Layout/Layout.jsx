@@ -6,8 +6,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 
 const Layout = () => {
-  // This log is useful to see how often Layout renders. Keep it for a bit if you like.
-  console.log("Layout component rendering (Normal Dynamic Version)");
+
 
   const isNonMobile = useMediaQuery("(min-width: 600px)"); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); 

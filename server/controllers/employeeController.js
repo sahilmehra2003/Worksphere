@@ -229,12 +229,12 @@ export const updateEmployee = async (req, res) => {
 
 export const completeExistingUserProfile = async (req, res) => {
   try {
-    const { name, position, country, state, city, phoneNumber } = req.body;
+    const { name, position, country, state, city, phoneNumber,image } = req.body;
     const userId = req.user._id; // Get user ID from authN middleware
 
     // Validate required fields (email is already part of req.user, name might be too)
     // Name might be updated, but email should typically not change here or be validated against req.user.email
-    if (!name || !position || !phoneNumber || !country || !state || !city) {
+    if (!name || !position || !phoneNumber || !country || !state || !city || !image) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields: name, position, country, state, city, and phoneNumber are required.'

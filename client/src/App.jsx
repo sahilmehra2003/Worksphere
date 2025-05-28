@@ -25,11 +25,14 @@ import GeoLocation from './Pages/Geography/GeoLocation';
 import CompanyHolidayCalendar from './Pages/Leave Management/Calender/OrganisationCalender';
 import UserLeavePage from './Pages/Leave Management/UserLeavePage';
 import CompleteProfile from './Pages/Profile/CompleteProfile';
+import ViewProfile from './Pages/Profile/ViewProfile';
 import Timesheet from './Pages/Timesheet/index';
 
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import TaskPage from './Pages/Tasks/index';
+import Teams from './Pages/Teams/Teams';
+import ScrollbarStyles from './components/ScrollBarStylex';
 
 // VVVVVV MOVED OUTSIDE THE COMPONENT VVVVVV
 const router = createBrowserRouter([
@@ -80,6 +83,14 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: "profile",
+        element: (
+          <Protected>
+            <ViewProfile />
+          </Protected>
+        ),
+      },
+      {
         path: "dashboard",
         element: (
           <Protected role="Admin">
@@ -121,11 +132,15 @@ const router = createBrowserRouter([
       },
       {
         path: 'timesheet',
-        element:<Timesheet/>
+        element: <Timesheet />
       },
       {
         path: 'tasks',
-        element:<TaskPage/>
+        element: <TaskPage />
+      },
+      {
+        path: 'teams',
+        element: <Teams />
       }
     ],
   },
@@ -141,7 +156,7 @@ const router = createBrowserRouter([
 // ^^^^^^ MOVED OUTSIDE THE COMPONENT ^^^^^^
 
 function App() {
-  
+
   const mode = useSelector((state) => state.theme.mode);
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
 
@@ -150,6 +165,7 @@ function App() {
       <ThemeProvider theme={theme}>
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <CssBaseline />
+          <ScrollbarStyles />
           <Toaster />
           <RouterProvider router={router} />
         </LocalizationProvider>

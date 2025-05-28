@@ -1,9 +1,9 @@
-// EmployeeData.jsx
+/* eslint-disable no-unused-vars */
+
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  Grid2, // Keep Grid if you plan to use it for overall page layout, though Box is used here
   Box,
   Table,
   TableBody,
@@ -22,11 +22,12 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete"; 
+import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
-import FlexBetween from "../../components/FlexBetween"; 
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import FlexBetween from "../../components/FlexBetween";
 import AddEmployeeForm from "./AddEmployeeForm";
-import EditEmployeeModal from "./EditEmployee"; 
+import EditEmployeeModal from "./EditEmployee";
 import {
   fetchAllEmployeesInternal,
   setEmployeeInactive,
@@ -54,7 +55,7 @@ const EmployeeData = () => {
   const [page, setPage] = useState(0); // Corresponds to pagination.currentPage - 1
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
-  const [showAddModal, setShowAddModal] = useState(false); // Changed from showAddForm
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentEditingEmployee, setCurrentEditingEmployee] = useState(null);
 
@@ -167,10 +168,10 @@ const EmployeeData = () => {
   return (
     <Box p={3}>
       <FlexBetween mb={3}>
-        <Typography variant="h3" color="primary" fontWeight="bold">
-          Employee List
+        <Typography variant="h3" color={theme.palette.primary.main} fontWeight="bold" align="center">
+          {showAddModal ? "Add Employee" : "Employee List"}
         </Typography>
-        {isAdmin && (
+        {isAdmin && !showAddModal && (
           <Button
             variant="contained"
             color="secondary"
@@ -180,12 +181,22 @@ const EmployeeData = () => {
             Add Employee
           </Button>
         )}
+        {isAdmin && showAddModal && (
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<ArrowBackIcon />}
+            onClick={handleCloseAddModal}
+          >
+            Back to List
+          </Button>
+        )}
       </FlexBetween>
 
       {isAdmin && showAddModal && (
         <AddEmployeeForm
           onClose={handleCloseAddModal}
-          onEmployeeAdded={handleEmployeeOperationSuccess} // Use unified success handler
+          onEmployeeAdded={handleEmployeeOperationSuccess}
         />
       )}
 
@@ -194,128 +205,128 @@ const EmployeeData = () => {
           open={showEditModal}
           onClose={handleCloseEditModal}
           employeeData={currentEditingEmployee}
-          onSuccess={handleEmployeeOperationSuccess} // Use unified success handler
+          onSuccess={handleEmployeeOperationSuccess}
         />
       )}
 
-      {/* Hide table if a full-page form is shown, or integrate forms as modals */}
-      {/* Assuming forms are now modals, so table is always potentially visible */}
-      <>
-        {isAdmin && selectedEmployees.length > 0 && (
-          <Box mb={2} display="flex" justifyContent="flex-end">
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={handleDeactivateSelected}
-              disabled={loading} // Disable if main list is loading
-            >
-              Deactivate Selected ({selectedEmployees.length})
-            </Button>
-          </Box>
-        )}
-        <Paper sx={{ width: '100%', overflowX: "auto" }}>
-          <TableContainer>
-            <Table stickyHeader aria-label="sticky table">
-              <TableHead>
-                <TableRow>
-                  {isAdmin && (
-                    <TableCell padding="checkbox" sx={{ backgroundColor: theme.palette.background.alt }}>
-                      <Checkbox
-                        indeterminate={selectedEmployees.length > 0 && selectedEmployees.length < (employees?.length || 0)}
-                        checked={(employees?.length || 0) > 0 && selectedEmployees.length === (employees?.length || 0)}
-                        onChange={handleSelectAllClick}
-                        inputProps={{ 'aria-label': 'select all employees' }}
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Name</TableCell>
-                  <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Email</TableCell>
-                  <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Phone</TableCell>
-                  <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Position</TableCell>
-                  <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Department</TableCell>
-                  <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Status</TableCell>
-                  {isAdmin && <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Actions</TableCell>}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading && employees.length > 0 && ( // Show inline loading only if some employees are already displayed
+      {!showAddModal && (
+        <>
+          {isAdmin && selectedEmployees.length > 0 && (
+            <Box mb={2} display="flex" justifyContent="flex-end">
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={handleDeactivateSelected}
+                disabled={loading} // Disable if main list is loading
+              >
+                Deactivate Selected ({selectedEmployees.length})
+              </Button>
+            </Box>
+          )}
+          <Paper sx={{ width: '100%', overflowX: "auto" }}>
+            <TableContainer>
+              <Table stickyHeader aria-label="sticky table">
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 8 : 7} align="center">
-                      <CircularProgress size={24} />
-                    </TableCell>
-                  </TableRow>
-                )}
-                {!loading && (!employees || employees.length === 0) && (
-                  <TableRow>
-                    <TableCell colSpan={isAdmin ? 8 : 7} align="center">
-                      <Typography>No employees found.</Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-                {!loading && employees && employees.map((employee) => (
-                  <TableRow
-                    key={employee._id}
-                    hover
-                    onClick={(event) => { // Allow row click for selection if not clicking checkbox/button
-                      if (isAdmin && event.target.type !== 'checkbox' && !event.target.closest('button')) {
-                        handleSelectEmployee(employee._id);
-                      }
-                    }}
-                    role="checkbox"
-                    aria-checked={selectedEmployees.includes(employee._id)}
-                    tabIndex={-1}
-                    selected={selectedEmployees.includes(employee._id)}
-                  >
                     {isAdmin && (
-                      <TableCell padding="checkbox">
+                      <TableCell padding="checkbox" sx={{ backgroundColor: theme.palette.background.alt }}>
                         <Checkbox
-                          checked={selectedEmployees.includes(employee._id)}
-                          onChange={(event) => {
-                            event.stopPropagation(); // Prevent row click from firing
-                            handleSelectEmployee(employee._id);
-                          }}
-                          inputProps={{ 'aria-labelledby': `employee-checkbox-${employee._id}` }}
+                          indeterminate={selectedEmployees.length > 0 && selectedEmployees.length < (employees?.length || 0)}
+                          checked={(employees?.length || 0) > 0 && selectedEmployees.length === (employees?.length || 0)}
+                          onChange={handleSelectAllClick}
+                          inputProps={{ 'aria-label': 'select all employees' }}
                         />
                       </TableCell>
                     )}
-                    <TableCell id={`employee-checkbox-${employee._id}`}>{employee.name}</TableCell>
-                    <TableCell>{employee.email}</TableCell>
-                    <TableCell>{employee.phoneNumber}</TableCell>
-                    <TableCell>{employee.position}</TableCell>
-                    <TableCell>{employee.department?.name || "N/A"}</TableCell>
-                    <TableCell>{employee.employmentStatus}</TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <Tooltip title="Edit Employee">
-                          <IconButton
-                            onClick={(event) => {
-                              event.stopPropagation(); // Prevent row click
-                              handleOpenEditModal(employee);
-                            }}
-                            size="small"
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    )}
+                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Name</TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Email</TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Phone</TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Position</TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Department</TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Status</TableCell>
+                    {isAdmin && <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Actions</TableCell>}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            component="div"
-            count={pagination.totalRecords || 0} // Use totalRecords from backend pagination
-            rowsPerPage={rowsPerPage}
-            page={page} // Use local page state
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </Paper>
-      </>
+                </TableHead>
+                <TableBody>
+                  {loading && employees.length > 0 && ( // Show inline loading only if some employees are already displayed
+                    <TableRow>
+                      <TableCell colSpan={isAdmin ? 8 : 7} align="center">
+                        <CircularProgress size={24} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!loading && (!employees || employees.length === 0) && (
+                    <TableRow>
+                      <TableCell colSpan={isAdmin ? 8 : 7} align="center">
+                        <Typography>No employees found.</Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!loading && employees && employees.map((employee) => (
+                    <TableRow
+                      key={employee._id}
+                      hover
+                      onClick={(event) => { // Allow row click for selection if not clicking checkbox/button
+                        if (isAdmin && event.target.type !== 'checkbox' && !event.target.closest('button')) {
+                          handleSelectEmployee(employee._id);
+                        }
+                      }}
+                      role="checkbox"
+                      aria-checked={selectedEmployees.includes(employee._id)}
+                      tabIndex={-1}
+                      selected={selectedEmployees.includes(employee._id)}
+                    >
+                      {isAdmin && (
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            checked={selectedEmployees.includes(employee._id)}
+                            onChange={(event) => {
+                              event.stopPropagation(); // Prevent row click from firing
+                              handleSelectEmployee(employee._id);
+                            }}
+                            inputProps={{ 'aria-labelledby': `employee-checkbox-${employee._id}` }}
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell id={`employee-checkbox-${employee._id}`}>{employee.name}</TableCell>
+                      <TableCell>{employee.email}</TableCell>
+                      <TableCell>{employee.phoneNumber}</TableCell>
+                      <TableCell>{employee.position}</TableCell>
+                      <TableCell>{employee.department?.name || "N/A"}</TableCell>
+                      <TableCell>{employee.employmentStatus}</TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <Tooltip title="Edit Employee">
+                            <IconButton
+                              onClick={(event) => {
+                                event.stopPropagation(); // Prevent row click
+                                handleOpenEditModal(employee);
+                              }}
+                              size="small"
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              component="div"
+              count={pagination.totalRecords || 0} // Use totalRecords from backend pagination
+              rowsPerPage={rowsPerPage}
+              page={page} // Use local page state
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          </Paper>
+        </>
+      )}
     </Box>
   );
 };

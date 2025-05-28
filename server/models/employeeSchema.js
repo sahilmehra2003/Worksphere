@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
-import { string } from "zod";
+
 
 const employeeSchema = new mongoose.Schema(
   {
@@ -63,6 +63,9 @@ const employeeSchema = new mongoose.Schema(
         /^[A-Z]{2}$/,
         "Please provide a valid 2-letter uppercase country code (ISO 3166-1 alpha-2)",
       ],
+    },
+    image: {
+      type: String,
     },
     department: {
       type: mongoose.Schema.Types.ObjectId,

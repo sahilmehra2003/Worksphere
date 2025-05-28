@@ -14,8 +14,6 @@ import { resetPasswordTemplate } from '../utility/_email_templates/passwordReset
 
 dotenv.config();
 
-const ENCRYPTION_KEY = process.env.ACCESS_TOKEN_ENCRYPTION_KEY || 'default_secret_key_32bytes!'; // Must be 32 bytes
-const IV_LENGTH = 16; // For AES, this is always 16
 
 
 export const sendOTP = async (req, res) => {
@@ -257,48 +255,48 @@ export const login = async (req, res) => {
         }
 
         const payload = {
-            id: employee._id, // This 'id' is what authN middleware expects from decoded token
+            id: employee._id,
             email: employee.email,
             role: employee.role,
             name: employee.name,
             country: employee.country
         };
 
-        // Generate tokens
         const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
-        const refreshTokenValue = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' }); // Renamed for clarity
+        const refreshTokenValue = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        // Store refresh token and expiry in DB
         employee.refreshToken = refreshTokenValue;
         employee.refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         await employee.save();
 
-        employee.password = undefined; // Remove password from the employee object sent to client
+        employee.password = undefined;
 
-        // Consistent Cookie Options
-        const primaryCookieOptions = {
+        const baseCookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            // 'Lax' is a good default. Use 'None' for cross-domain IF 'secure' is also true.
-            sameSite: process.env.NODE_ENV === 'production' ? (process.env.COOKIE_SAMESITE_NONE_SECURE ? 'None' : 'Lax') : 'Lax',
-            maxAge: 24 * 60 * 60 * 1000 // 1 day for access token cookie
+            sameSite: process.env.NODE_ENV === 'production' ? (process.env.COOKIE_SAMESITE_NONE_SECURE === 'true' ? 'None' : 'Lax') : 'Lax', // ensure COOKIE_SAMESITE_NONE_SECURE is evaluated as boolean if string
+            path: '/' 
+        };
+
+        const accessTokenCookieOptions = {
+            ...baseCookieOptions,
+            maxAge: 24 * 60 * 60 * 1000 // 1 day
         };
 
         const refreshTokenCookieOptions = {
-            ...primaryCookieOptions,
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days for refresh token cookie
+            ...baseCookieOptions,
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         };
 
         res
-            .cookie('token', accessToken, primaryCookieOptions) // *** SET THE 'token' COOKIE with plain JWT ***
-            .cookie('refreshToken', refreshTokenValue, refreshTokenCookieOptions) // Keep refresh token cookie if your refresh strategy uses it
+            .cookie('token', accessToken, accessTokenCookieOptions)
+            .cookie('refreshToken', refreshTokenValue, refreshTokenCookieOptions)
             .status(200)
             .json({
                 success: true,
                 message: "User logged in Successfully",
-                accessToken, // Still okay to send plain token in body for frontend state if needed
-                // refreshToken, // Optionally send if frontend directly uses it (less common for web)
-                user: { // Send necessary, non-sensitive user details
+                accessToken, // Still sending for frontend state if needed
+                user: {
                     id: employee._id,
                     name: employee.name,
                     email: employee.email,
@@ -403,6 +401,7 @@ export const googleAuthenticationCallback = async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+            path: '/' 
         };
 
         res.cookie('token', accessToken, cookieOptions);

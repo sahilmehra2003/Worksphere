@@ -17,10 +17,12 @@ export const fetchAllClients = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await apiConnector('GET', CLIENT_ENDPOINTS.GET_ALL_CLIENTS_API);
-            return response.data;
+            if (response.data && response.data.success) {
+                return response.data.data;
+            }
+            return rejectWithValue(response.data?.message || 'Failed to fetch clients');
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to fetch clients.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch clients');
         }
     }
 );
@@ -43,51 +45,45 @@ export const fetchClientById = createAsyncThunk(
 
 export const createClient = createAsyncThunk(
     'client/create',
-    async (clientData, { dispatch, rejectWithValue }) => {
+    async (clientData, { rejectWithValue }) => {
         try {
             const response = await apiConnector('POST', CLIENT_ENDPOINTS.CREATE_CLIENT_API, clientData);
             if (!response.data.success) {
-                return rejectWithValue(response.data.message || 'Failed to create client.');
+                return rejectWithValue(response.data.message || 'Failed to create client');
             }
-            dispatch(fetchAllClients());
-            return response.data;
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to create client.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to create client');
         }
     }
 );
 
 export const updateClient = createAsyncThunk(
     'client/update',
-    async ({ clientId, updatedData }, { dispatch, rejectWithValue }) => {
+    async ({ clientId, updatedData }, { rejectWithValue }) => {
         try {
             const response = await apiConnector('PUT', CLIENT_ENDPOINTS.UPDATE_CLIENT_API(clientId), updatedData);
             if (!response.data.success) {
-                return rejectWithValue(response.data.message || 'Failed to update client.');
+                return rejectWithValue(response.data.message || 'Failed to update client');
             }
-            dispatch(fetchAllClients());
-            return response.data;
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to update client.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to update client');
         }
     }
 );
 
 export const deactivateClient = createAsyncThunk(
     'client/deactivate',
-    async (clientId, { dispatch, rejectWithValue }) => {
+    async (clientId, { rejectWithValue }) => {
         try {
             const response = await apiConnector('PATCH', CLIENT_ENDPOINTS.DEACTIVATE_CLIENT_API(clientId));
             if (!response.data.success) {
-                return rejectWithValue(response.data.message || 'Failed to deactivate client.');
+                return rejectWithValue(response.data.message || 'Failed to deactivate client');
             }
-            dispatch(fetchAllClients());
-            return response.data;
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to deactivate client.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to deactivate client');
         }
     }
 );
@@ -104,6 +100,9 @@ const clientSlice = createSlice({
             state.operationError = null;
             state.operationSuccess = false;
         },
+        clearCurrentClient: (state) => {
+            state.currentClient = null;
+        }
     },
     extraReducers: (builder) => {
         builder
@@ -113,7 +112,7 @@ const clientSlice = createSlice({
             })
             .addCase(fetchAllClients.fulfilled, (state, action) => {
                 state.loading = false;
-                state.clients = action.payload || [];
+                state.clients = action.payload;
             })
             .addCase(fetchAllClients.rejected, (state, action) => {
                 state.loading = false;
@@ -134,37 +133,63 @@ const clientSlice = createSlice({
                 state.operationError = action.payload;
                 state.currentClient = null;
             })
-            .addMatcher(
-                (action) => [createClient.pending.type, updateClient.pending.type, deactivateClient.pending.type].includes(action.type),
-                (state) => {
-                    state.operationLoading = true;
-                    state.operationError = null;
-                    state.operationSuccess = false;
+            .addCase(createClient.pending, (state) => {
+                state.operationLoading = true;
+                state.operationError = null;
+                state.operationSuccess = false;
+            })
+            .addCase(createClient.fulfilled, (state, action) => {
+                state.operationLoading = false;
+                state.operationSuccess = true;
+                state.clients.push(action.payload);
+            })
+            .addCase(createClient.rejected, (state, action) => {
+                state.operationLoading = false;
+                state.operationError = action.payload;
+            })
+            .addCase(updateClient.pending, (state) => {
+                state.operationLoading = true;
+                state.operationError = null;
+                state.operationSuccess = false;
+            })
+            .addCase(updateClient.fulfilled, (state, action) => {
+                state.operationLoading = false;
+                state.operationSuccess = true;
+                const index = state.clients.findIndex(client => client._id === action.payload._id);
+                if (index !== -1) {
+                    state.clients[index] = action.payload;
                 }
-            )
-            .addMatcher(
-                (action) => [createClient.fulfilled.type, updateClient.fulfilled.type, deactivateClient.fulfilled.type].includes(action.type),
-                (state, action) => {
-                    state.operationLoading = false;
-                    state.operationSuccess = true;
-                    if (action.type === updateClient.fulfilled.type && state.currentClient?._id === action.payload.client?._id) {
-                        state.currentClient = action.payload.client;
-                    }
-                    if (action.type === deactivateClient.fulfilled.type && state.currentClient?._id === action.payload.data?._id) {
-                        state.currentClient = action.payload.data;
-                    }
+                if (state.currentClient?._id === action.payload._id) {
+                    state.currentClient = action.payload;
                 }
-            )
-            .addMatcher(
-                (action) => [createClient.rejected.type, updateClient.rejected.type, deactivateClient.rejected.type].includes(action.type),
-                (state, action) => {
-                    state.operationLoading = false;
-                    state.operationError = action.payload;
+            })
+            .addCase(updateClient.rejected, (state, action) => {
+                state.operationLoading = false;
+                state.operationError = action.payload;
+            })
+            .addCase(deactivateClient.pending, (state) => {
+                state.operationLoading = true;
+                state.operationError = null;
+                state.operationSuccess = false;
+            })
+            .addCase(deactivateClient.fulfilled, (state, action) => {
+                state.operationLoading = false;
+                state.operationSuccess = true;
+                const index = state.clients.findIndex(client => client._id === action.payload._id);
+                if (index !== -1) {
+                    state.clients[index] = action.payload;
                 }
-            );
+                if (state.currentClient?._id === action.payload._id) {
+                    state.currentClient = action.payload;
+                }
+            })
+            .addCase(deactivateClient.rejected, (state, action) => {
+                state.operationLoading = false;
+                state.operationError = action.payload;
+            });
     },
 });
 
-export const { setCurrentClient, clearClientOperationStatus } = clientSlice.actions;
+export const { setCurrentClient, clearClientOperationStatus, clearCurrentClient } = clientSlice.actions;
 
 export default clientSlice.reducer;

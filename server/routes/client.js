@@ -11,7 +11,7 @@ router.get('/client/:id',getClientById);
 router.post('/client/create',createClient);
 router.put('/client/update/:id',updateClient)
 router.patch(
-    'deactivateClient/:clientId',
+    '/deactivateClient/:clientId',
     authN,
     checkPermission(Permissions.MANAGE_CLIENTS), 
     deactivateClient

@@ -22,7 +22,7 @@ router.post(
 );
 
 
-
+router.post('/:countryCode/holidays',authN,addHoliday)
 router.get("/fetchAll", authN, getAllCountryCalendars);
 router.delete('/:countryCode/holidays/:holidayId',authN,deleteHoliday);
 

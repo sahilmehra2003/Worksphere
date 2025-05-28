@@ -5,7 +5,7 @@ const getInitialMode = () => {
     try {
         const persistedMode = localStorage.getItem("worksphereThemeMode");
         if (persistedMode) {
-            return persistedMode === "dark" ? "dark" : "light"; // Validate persisted value
+            return persistedMode === "dark" ? "dark" : "light"; 
         }
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
              return "dark";

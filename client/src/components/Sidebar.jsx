@@ -10,11 +10,8 @@ import {
     ChevronRightOutlined,
     Groups2Outlined,
     ReceiptLongOutlined,
-    // HomeOutlined,          // Uncomment later
     Assignment,
-    // Groups,                // Uncomment later
-    // CheckCircle,           // Uncomment later
-    // TrendingUpOutlined,    // Uncomment later
+    Groups,
     CalendarMonthOutlined,
     Task
 } from "@mui/icons-material";
@@ -24,120 +21,26 @@ import PersonIcon from '@mui/icons-material/Person';
 import { PublicOutlined } from '@mui/icons-material';
 import logo from '../assets/logo-png.png';
 import FlexBetween from './FlexBetween';
-import { icon } from 'leaflet';
-
-// Organized with future sections in mind
+const logoStyle = {
+    filter: "invert(1) hue-rotate(180deg)",
+};
 const navItems = [
-    /* ===== Dashboard (uncomment later) =====
-    {
-        id: 'dashboard',
-        text: "Dashboard",
-        icon: <HomeOutlined />,
-        isSticky: true  // Special styling for dashboard
-    },
-    */
-
-    /* ===== Client Section ===== */
-    {
-        id: 'client-section',
-        text: "Client Facing",
-        icon: null,
-        isSectionHeader: true
-    },
-    {
-        id: 'clients',
-        text: "Clients",
-        icon: <Groups2Outlined />
-    },
-
-    {
-        id: 'projects',
-        text: "Projects",
-        icon: <Assignment />
-    },
-
-    {
-        id: 'transactions',
-        text: "Transactions",
-        icon: <ReceiptLongOutlined />
-    },
-    {
-        id: 'geography',
-        text: "Geography",
-        icon: <PublicOutlined />
-    },
-
-    /* ===== Employee Section ===== */
-    {
-        id: 'employee-section',
-        text: "Employee Data",
-        icon: null,
-        isSectionHeader: true
-    },
-    {
-        id: 'employees',
-        text: "Employees",
-        icon: <PersonIcon />
-    },
-    {
-        id: 'task',
-        text: "Tasks",
-        icon:<Task/>
-    },
-
-    /* ===== Department Section ===== */
-    {
-        id: 'department-section',
-        text: "Department Data",
-        icon: null,
-        isSectionHeader: true
-    },
-    {
-        id: 'departments',
-        text: "Departments",
-        icon: <ApartmentIcon />
-    },
-    {
-        id: 'company calendar',
-        text: "calendar",
-        icon: <CalendarMonthOutlined />
-    },
-    {
-        id: 'management-section',
-        text: "Management",
-        icon: null,
-        isSectionHeader: true
-    },
-    {
-        id: 'leave',
-        text: 'Leave System',
-        icon: <EventBusyIcon />
-    },
-    {
-        id: 'timesheet',
-        text: 'Timesheet',
-        icon: <Assignment />
-    },
-    /* ===== Future Sections (uncomment later) =====
-    {
-        id: 'project-teams',
-        text: "Project Teams",
-        icon: <Groups />
-    },
-    {
-        id: 'attendance',
-        text: "Attendance",
-        icon: <CheckCircle />
-    },
-   
-    {
-        id: 'performance',
-        text: "Performance",
-        icon: <TrendingUpOutlined />
-    },
-    
-    */
-].filter(Boolean); // Safely removes any undefined/null items
+    { id: 'client-section', text: "Client Facing", icon: null, isSectionHeader: true },
+    { id: 'clients', text: "Clients", icon: <Groups2Outlined /> },
+    { id: 'projects', text: "Projects", icon: <Assignment /> },
+    { id: 'transactions', text: "Transactions", icon: <ReceiptLongOutlined /> },
+    { id: 'geography', text: "Geography", icon: <PublicOutlined /> },
+    { id: 'employee-section', text: "Employee Data", icon: null, isSectionHeader: true },
+    { id: 'employees', text: "Employees", icon: <PersonIcon /> },
+    { id: 'task', text: "Tasks", icon: <Task /> },
+    { id: 'department-section', text: "Department Data", icon: null, isSectionHeader: true },
+    { id: 'departments', text: "Departments", icon: <ApartmentIcon /> },
+    { id: 'project-teams', text: "Teams", icon: <Groups /> },
+    { id: 'management-section', text: "Management", icon: null, isSectionHeader: true },
+    { id: 'company calendar', text: "Calendar", icon: <CalendarMonthOutlined /> },
+    { id: 'leave', text: 'Leave System', icon: <EventBusyIcon /> },
+    { id: 'timesheet', text: 'Timesheet', icon: <Assignment /> },
+].filter(Boolean);
 
 const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) => {
     const theme = useTheme();
@@ -160,27 +63,54 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                     sx={{
                         width: drawerWidth,
                         "& .MuiDrawer-paper": {
-                            backgroundColor: theme.palette.background.alt,
-                            color: 'white',
+                            backgroundColor: theme.palette.background.default,
+                            color: theme.palette.text.primary,
                             boxSizing: "border-box",
                             borderWidth: isNonMobile ? 0 : "2px",
                             width: drawerWidth,
+                            overflowX: "hidden"
                         },
                     }}
                 >
                     {/* Logo and Close Button */}
-                    <Box sx={{ position: "sticky", top: 0, zIndex: 1, p: "1.5rem 2rem 2rem 3rem" }}>
-                        <FlexBetween color="#660033">
+                    <Box
+                        sx={{
+                            position: "fixed",
+                            top: 0,
+                            zIndex: 1, // Sits below the logo box if logo needs to float above blur
+                            height: '50px', 
+                            backgroundColor: theme.palette.background.default, 
+                            backdropFilter: "blur(8px)",
+                            WebkitBackdropFilter: "blur(8px)",
+                            padding:"10px",
+                            width: '242px', 
+                        }}
+                    />
+                    <Box 
+                    sx={{
+                        position: "sticky",  
+                        top: 0,
+                        zIndex: 2,
+                        padding: "10px",
+                        width: '90px',
+                        height:'40px',
+                        scale: "1.1",
+                      //  marginBlock: "10px",
+                        ...(theme.palette.mode === "light" && logoStyle),
+                    }}    
+                    >
+                        <FlexBetween>
                             <Box display="flex" alignItems="center" gap="0.5rem">
                                 <Box component="img" src={logo} alt="Logo" sx={{ width: 160, scale: "1.7" }} />
                             </Box>
                             {!isNonMobile && (
                                 <IconButton onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-                                    <ChevronLeft sx={{ color: '#B6EADA' }} />
+                                    <ChevronLeft sx={{ color: theme.palette.primary.light }} />
                                 </IconButton>
                             )}
                         </FlexBetween>
                     </Box>
+                   
 
                     {/* Navigation Items */}
                     <Box width="100%">
@@ -190,12 +120,17 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                                     return (
                                         <Typography
                                             key={`section-${id}`}
-                                            sx={{ m: "1.5rem 2rem 2rem 3rem", color: theme.palette.neutral.main }}
+                                            sx={{
+                                                m: "1.5rem 2rem 2rem 3rem",
+                                                color: theme.palette.neutral.main,
+                                            }}
                                         >
                                             {text}
                                         </Typography>
                                     );
                                 }
+
+                                const isActive = active === id;
 
                                 return (
                                     <ListItem
@@ -205,28 +140,27 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                                             position: "sticky",
                                             top: 60,
                                             zIndex: 1,
-                                            backgroundColor: '#301E67'
+                                            backgroundColor: theme.palette.primary.dark,
                                         } : {}}
                                     >
                                         <ListItemButton
                                             onClick={() => {
-                                                console.log(`/app/${text.toLowerCase()}`)
                                                 navigate(`/app/${text.toLowerCase()}`);
                                                 setActive(id);
                                             }}
                                             sx={{
-                                                backgroundColor: active === id ? '#5B8FB9' : "transparent",
-                                                color: active === id ? '#03001C' : '#B6EADA',
+                                                backgroundColor: isActive ? theme.palette.primary.main : "transparent",
+                                                color: isActive ? theme.palette.text.light : theme.palette.text.primary,
                                             }}
                                         >
                                             <ListItemIcon sx={{
                                                 ml: "2rem",
-                                                color: active === id ? '#03001C' : '#B6EADA',
+                                                color: isActive ? theme.palette.text.light : theme.palette.text.primary,
                                             }}>
                                                 {icon}
                                             </ListItemIcon>
                                             <ListItemText primary={text} />
-                                            {active === id && (
+                                            {isActive && (
                                                 <ChevronRightOutlined sx={{ ml: "auto", color: theme.palette.neutral.main }} />
                                             )}
                                         </ListItemButton>
@@ -234,7 +168,7 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                                 );
                             })}
                         </List>
-                        <br /><br />
+                    
                     </Box>
                 </Drawer>
             )}

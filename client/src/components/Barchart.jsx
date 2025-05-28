@@ -7,9 +7,9 @@ const BarChartComponent = ({ data, title }) => {
 
     return (
         <Paper elevation={3} style={{ padding: '20px', margin: '20px' ,
-         backgroundColor:'#1a0a1a'}}
+         backgroundColor:theme.palette.background.paper}}
         >
-            <Typography variant="h3" style={{ color:'whitesmoke', textAlign:'center'}}>{title}</Typography><br/>
+            <Typography variant="h3" style={{ color:theme.palette.text.primary, textAlign:'center'}}>{title}</Typography><br/>
             <ResponsiveContainer width="100%" height={400}>
                 <BarChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" />

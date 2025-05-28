@@ -1,10 +1,10 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
-import React, { useEffect, useReducer } from 'react'; 
+import React, { useEffect, useReducer } from 'react';
 import { apiConnector } from '../services/apiConnector';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useDispatch as useReduxDispatch } from 'react-redux'; 
-import { setCredentials } from '../redux/Slices/authSlice'; 
+import { useDispatch as useReduxDispatch } from 'react-redux';
+import { setCredentials, logoutUser } from '../redux/Slices/authSlice';
 
 // Action types for local reducer
 const AUTH_LOADING = 'AUTH_LOADING';
@@ -29,8 +29,8 @@ function authReducer(state, action) {
 }
 
 function Protected({ children, role }) {
-  // Local state for this component's auth check
-  const [state, dispatch] = useReducer(authReducer, { loading: true, user: null, error: null });
+  // Local state for this component's auth check (using 'localDispatch' for clarity)
+  const [state, localDispatch] = useReducer(authReducer, { loading: true, user: null, error: null });
   const navigate = useNavigate();
   const location = useLocation();
   const reduxDispatch = useReduxDispatch(); // For dispatching actions to Redux store
@@ -42,18 +42,12 @@ function Protected({ children, role }) {
     console.log("Protected.jsx: useEffect triggered. Path:", location.pathname, "Role:", role);
 
     const checkAuth = async () => {
-      // Set loading state for this component's auth check
-      // This happens on mount and if dependencies were to change (though they are empty here for the main check)
-      dispatch({ type: AUTH_LOADING });
+      localDispatch({ type: AUTH_LOADING });
 
       try {
         console.log("Protected.jsx: checkAuth started. Attempting /me call.");
-        // Pass the signal to apiConnector.
-        // The apiConnector should be modified to accept the signal in its options/headers if not already.
-        // For example: await apiConnector("GET", "/api/v1/auth/me", null, { signal });
-        // Assuming your apiConnector was updated as discussed:
         const response = await apiConnector("GET", "/api/v1/auth/me", null, null, null, signal);
-        const responseData = response.data; // Assuming your apiConnector returns the full response object
+        const responseData = response.data;
 
         console.log("Protected.jsx: /me API call responded. Signal aborted:", signal.aborted);
 
@@ -62,9 +56,16 @@ function Protected({ children, role }) {
           return;
         }
 
+        // **Recommended Change Here:**
+        // If the API call was successful (e.g. HTTP 200) but the backend logic indicates
+        // failure (e.g., success: false, or no user data), dispatch global logout.
         if (!responseData || !responseData.success || !responseData.user) {
-          console.log("Protected.jsx: /me call failed or user data missing in response. Payload:", responseData);
-          dispatch({ type: AUTH_ERROR, payload: "Authentication failed: Invalid response from server." });
+          console.log("Protected.jsx: /me call indicates invalid session or user data missing in response. Payload:", responseData);
+          localDispatch({ type: AUTH_ERROR, payload: responseData?.message || "Authentication failed: Invalid response from server." });
+          if (!responseData || !responseData.success) { // If backend explicitly states failure
+            console.log("Protected.jsx: Dispatching logoutUser due to server indicating unsuccessful auth.");
+            reduxDispatch(logoutUser()); // Ensure global state and localStorage are cleared
+          }
           navigate("/login");
           return;
         }
@@ -76,39 +77,38 @@ function Protected({ children, role }) {
 
         // Role Check
         if (role && user.role !== role) {
-          console.log("Protected.jsx: Role mismatch. Required:", role, "Got:", user.role, ". Navigating to /unauthorized or /login.");
+          console.log("Protected.jsx: Role mismatch. Required:", role, "Got:", user.role, ". Navigating.");
           // Consider navigating to a specific '/unauthorized' page if it exists
-          // For now, dispatching error and navigating to login for simplicity.
-          dispatch({ type: AUTH_ERROR, payload: "Access denied: Insufficient role." });
-          navigate("/login"); // Or navigate("/unauthorized");
+          localDispatch({ type: AUTH_ERROR, payload: "Access denied: Insufficient role." });
+          // Navigating to login on role mismatch might be too aggressive if the user is otherwise authenticated.
+          // An '/unauthorized' page or redirecting to a default page might be better.
+          // For now, keeping as per original logic of navigating to /login.
+          navigate("/login"); // Or navigate("/unauthorized") or navigate("/app/dashboard")
           return;
         }
 
         // Profile Completion Check (but allow access to complete-profile page itself)
         if (location.pathname !== '/app/complete-profile' && !user.isProfileComplete) {
           console.log("Protected.jsx: Profile not complete. Navigating to /app/complete-profile.");
-          // We still need to authenticate the user for the complete-profile page
-          // So, we dispatch AUTH_SUCCESS to stop loading, then navigate.
-          // The complete-profile page will then be rendered.
-          dispatch({ type: AUTH_SUCCESS, payload: user }); // Allow rendering children (which would be CompleteProfile)
-          reduxDispatch(setCredentials({ user: user })); // Update Redux store too
+          localDispatch({ type: AUTH_SUCCESS, payload: user });
+          reduxDispatch(setCredentials({ user: user }));
           navigate("/app/complete-profile", { replace: true });
           return;
         }
 
         console.log("Protected.jsx: Authentication successful. Dispatching AUTH_SUCCESS locally and setCredentials to Redux.");
-        dispatch({ type: AUTH_SUCCESS, payload: user });
-        // Also update the global Redux store so other components (like Navbar, CompleteProfile) can access user info
+        localDispatch({ type: AUTH_SUCCESS, payload: user });
         reduxDispatch(setCredentials({ user: user }));
 
       } catch (err) {
         if (err.name === 'AbortError' || err.name === 'CanceledError') {
           console.log("Protected.jsx: Auth check explicitly aborted by cleanup (caught AbortError/CanceledError).");
-          // No state update needed if aborted, it means the component instance is gone or effect re-ran
-        } else if (!signal.aborted) { // Only process error if the effect itself wasn't aborted during the error
+        } else if (!signal.aborted) {
           console.error("Protected.jsx: Authentication error in checkAuth catch block:", err);
           const errorMessage = err.response?.data?.message || err.message || "Authentication failed.";
-          dispatch({ type: AUTH_ERROR, payload: errorMessage });
+          console.log("Protected.jsx: Dispatching logoutUser due to unrecoverable auth error in catch block.");
+          reduxDispatch(logoutUser()); // Clears global Redux state and localStorage
+          localDispatch({ type: AUTH_ERROR, payload: errorMessage });
           navigate("/login");
         } else {
           console.log("Protected.jsx: Error caught, but request was already aborted (signal.aborted is true). Error name:", err.name);
@@ -122,30 +122,21 @@ function Protected({ children, role }) {
       console.log("Protected.jsx: useEffect cleanup. Aborting ongoing auth check. Path:", location.pathname);
       abortController.abort();
     };
-  }, [location.pathname, role, navigate, reduxDispatch]); // Restore dependencies:
-  // location.pathname: to re-check if path changes
-  // role: to re-check if role prop changes
-  // navigate: stable, but good practice if used in effect
-  // reduxDispatch: stable
+  }, [location.pathname, role, navigate, reduxDispatch]); // Dependencies
 
-  console.log("Protected.jsx: Rendering component. Current auth state:", state);
+  console.log("Protected.jsx: Rendering component. Current local auth state:", state);
 
   if (state.loading) {
     console.log("Protected.jsx: Rendering loading state (<div>Loading...</div>)");
-    return <div>Loading...</div>; // Or a more sophisticated loading spinner
+    return <div>Loading...</div>;
   }
 
   if (state.user) {
-    console.log("Protected.jsx: Rendering protected children. User:", state.user.name);
-    // Pass the user object to children if they need it directly,
-    // though they can also get it from Redux store now.
-    // return React.cloneElement(children, { authUser: state.user });
+    console.log("Protected.jsx: Rendering protected children. User name (if available):", state.user.name);
     return children;
   }
 
-  // If not loading and no user (e.g., auth error led to user being null),
-  // navigation should have occurred. Returning null is a fallback.
-  console.log("Protected.jsx: Not loading and no user. Error state:", state.error, "Returning null (navigation should have happened).");
+  console.log("Protected.jsx: Not loading and no user. Error state:", state.error, ". Navigation should have occurred. Returning null.");
   return null;
 }
 

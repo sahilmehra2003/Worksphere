@@ -28,11 +28,15 @@ const projectSchema = new mongoose.Schema({
     type: Date,
     default:null
   },
-  teamId: { 
+  teamId: [{ 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'ProjectTeam', 
-    default:null 
-  }, // Empty if no team is assigned
+    default: [] 
+  }], // Empty if no team is assigned
+  departmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref:'Department'
+  },
   budget: { 
     type: Number, 
     required: true 

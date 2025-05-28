@@ -3,114 +3,157 @@ import { apiConnector } from '../../services/apiConnector';
 import { PROJECT_ENDPOINTS } from '../../services/apiEndpoints';
 
 const initialState = {
-    projects: [], // Array to store the list of all projects
-    currentProject: null, // To store details of a single project
-    loading: false, // For fetching the list of projects
-    operationLoading: false, // For CUD operations
+    projects: [],
+    currentProject: null,
+    loading: false,
+    operationLoading: false,
     error: null,
     operationError: null,
     operationSuccess: false,
-   // pagination: { currentPage: 1, totalPages: 1, totalRecords: 0 },
 };
 
-
-// 1. Fetch All Projects
 export const fetchAllProjects = createAsyncThunk(
     'project/fetchAll',
-    async (_, { rejectWithValue }) => { // arg is _ if not used
+    async (_, { rejectWithValue }) => {
         try {
             const response = await apiConnector('GET', PROJECT_ENDPOINTS.GET_ALL_PROJECTS_API);
-            // Your projectController.js for getAllProjects returns { success, projects }
-            if (response && Array.isArray(response.data)) {
-                console.log("ProjectSlice: API call successful, response.data is an array. Returning it.");
-                return response.data; // Return the array of projects directly
+            if (response.data && response.data.success && Array.isArray(response.data.data)) {
+                return response.data.data;
             } else {
-                const errorMessage = response.data?.message || 'Failed to fetch projects: Unexpected response structure.';
-                console.error("ProjectSlice: Rejecting - " + errorMessage, response.data);
-                return rejectWithValue(errorMessage);
+                return rejectWithValue(response.data?.message || 'Failed to fetch projects: Unexpected response.');
             }
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to fetch projects.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch projects.');
         }
     }
 );
 
-// 2. Fetch Project By ID
 export const fetchProjectById = createAsyncThunk(
     'project/fetchById',
     async (projectId, { rejectWithValue }) => {
         try {
             const response = await apiConnector('GET', PROJECT_ENDPOINTS.GET_PROJECT_BY_ID_API(projectId));
-            // Your projectController.js for getProjectById returns { success, project }
-            if (response.data && response.data.success) {
-                return response.data.project;
+            if (response.data && response.data.success && response.data.data) {
+                return response.data.data;
             }
-            return rejectWithValue(response.data?.message || 'Project not found or error fetching details.');
+            return rejectWithValue(response.data?.message || 'Project not found.');
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to fetch project details.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch project details.');
         }
     }
 );
 
-// 3. Create Project
 export const createProject = createAsyncThunk(
     'project/create',
     async (projectData, { dispatch, rejectWithValue }) => {
         try {
             const response = await apiConnector('POST', PROJECT_ENDPOINTS.CREATE_PROJECT_API, projectData);
-            // Your projectController.js for createProject returns { success, message, project }
             if (!response.data.success) {
                 return rejectWithValue(response.data.message || 'Failed to create project.');
             }
-            dispatch(fetchAllProjects()); // Re-fetch all projects to update the list
-            return response.data; // { success, message, project }
+            dispatch(fetchAllProjects());
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to create project.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to create project.');
         }
     }
 );
 
-// 4. Update Project (Assuming you have an update controller and route)
 export const updateProject = createAsyncThunk(
     'project/update',
     async ({ projectId, updatedData }, { dispatch, rejectWithValue }) => {
         try {
             const response = await apiConnector('PUT', PROJECT_ENDPOINTS.UPDATE_PROJECT_API(projectId), updatedData);
-            // Assume backend returns { success, message, project: updatedProject }
             if (!response.data.success) {
                 return rejectWithValue(response.data.message || 'Failed to update project.');
             }
-            dispatch(fetchAllProjects()); // Re-fetch to update list
-            return response.data;
+            dispatch(fetchAllProjects());
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to update project.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to update project.');
         }
     }
 );
 
-// 5. Delete Project (Assuming you have a delete controller and route)
 export const deleteProject = createAsyncThunk(
     'project/delete',
     async (projectId, { dispatch, rejectWithValue }) => {
         try {
             const response = await apiConnector('DELETE', PROJECT_ENDPOINTS.DELETE_PROJECT_API(projectId));
-            // Assume backend returns { success, message } or 204 No Content
-            if (response.status === 204 || (response.data && response.data.success)) {
-                dispatch(fetchAllProjects()); // Re-fetch to update list
-                return { projectId, ...response.data }; // Return ID for UI or success message
+            if (response.data && response.data.success) {
+                dispatch(fetchAllProjects());
+                return { projectId, message: response.data.message };
             }
             return rejectWithValue(response.data?.message || 'Failed to delete project.');
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to delete project.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to delete project.');
         }
     }
 );
 
+export const addProjectTeam = createAsyncThunk(
+    'project/addTeam',
+    async ({ projectId, teamData }, { dispatch, rejectWithValue }) => {
+        try {
+            const response = await apiConnector('PUT', PROJECT_ENDPOINTS.ADD_PROJECT_TEAM_API(projectId), teamData);
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to add team to project.');
+            }
+            dispatch(fetchAllProjects());
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to add team to project.');
+        }
+    }
+);
+
+export const removeProjectTeam = createAsyncThunk(
+    'project/removeTeam',
+    async ({ projectId, teamData }, { dispatch, rejectWithValue }) => {
+        try {
+            const response = await apiConnector('PUT', PROJECT_ENDPOINTS.REMOVE_PROJECT_TEAM_API(projectId), teamData);
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to remove team from project.');
+            }
+            dispatch(fetchAllProjects());
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to remove team from project.');
+        }
+    }
+);
+
+export const addProjectClient = createAsyncThunk(
+    'project/addClient',
+    async ({ projectId, clientData }, { dispatch, rejectWithValue }) => {
+        try {
+            const response = await apiConnector('PUT', PROJECT_ENDPOINTS.ADD_PROJECT_CLIENT_API(projectId), clientData);
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to add client to project.');
+            }
+            dispatch(fetchAllProjects());
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to add client to project.');
+        }
+    }
+);
+
+export const removeProjectClient = createAsyncThunk(
+    'project/removeClient',
+    async ({ projectId }, { dispatch, rejectWithValue }) => {
+        try {
+            const response = await apiConnector('PUT', PROJECT_ENDPOINTS.REMOVE_PROJECT_CLIENT_API(projectId));
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to remove client from project.');
+            }
+            dispatch(fetchAllProjects());
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to remove client from project.');
+        }
+    }
+);
 
 const projectSlice = createSlice({
     name: 'project',
@@ -118,6 +161,9 @@ const projectSlice = createSlice({
     reducers: {
         setCurrentProject: (state, action) => {
             state.currentProject = action.payload;
+        },
+        clearCurrentProject: (state) => {
+            state.currentProject = null;
         },
         clearProjectOperationStatus: (state) => {
             state.operationLoading = false;
@@ -127,26 +173,23 @@ const projectSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            // Fetch All Projects
             .addCase(fetchAllProjects.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
             .addCase(fetchAllProjects.fulfilled, (state, action) => {
                 state.loading = false;
-                state.projects = action.payload || []; // Assuming payload is the array
+                state.projects = action.payload || [];
             })
             .addCase(fetchAllProjects.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
                 state.projects = [];
             })
-
-            // Fetch Project By ID
             .addCase(fetchProjectById.pending, (state) => {
-                state.loading = true; // Or a specific loadingCurrent
+                state.loading = true;
                 state.currentProject = null;
-                state.operationError = null; // Using operationError for specific fetch error
+                state.operationError = null;
             })
             .addCase(fetchProjectById.fulfilled, (state, action) => {
                 state.loading = false;
@@ -157,10 +200,23 @@ const projectSlice = createSlice({
                 state.operationError = action.payload;
                 state.currentProject = null;
             })
-
-            // Common handling for CUD operations
+            .addCase(deleteProject.fulfilled, (state, action) => {
+                state.operationLoading = false;
+                state.operationSuccess = true;
+                if (state.currentProject?._id === action.payload.projectId) {
+                    state.currentProject = null;
+                }
+            })
             .addMatcher(
-                (action) => [createProject.pending.type, updateProject.pending.type, deleteProject.pending.type].includes(action.type),
+                (action) => [
+                    createProject.pending.type,
+                    updateProject.pending.type,
+                    deleteProject.pending.type,
+                    addProjectTeam.pending.type,
+                    removeProjectTeam.pending.type,
+                    addProjectClient.pending.type,
+                    removeProjectClient.pending.type
+                ].includes(action.type),
                 (state) => {
                     state.operationLoading = true;
                     state.operationError = null;
@@ -168,30 +224,41 @@ const projectSlice = createSlice({
                 }
             )
             .addMatcher(
-                (action) => [createProject.fulfilled.type, updateProject.fulfilled.type, deleteProject.fulfilled.type].includes(action.type),
+                (action) => [
+                    createProject.fulfilled.type,
+                    updateProject.fulfilled.type,
+                    addProjectTeam.fulfilled.type,
+                    removeProjectTeam.fulfilled.type,
+                    addProjectClient.fulfilled.type,
+                    removeProjectClient.fulfilled.type
+                ].includes(action.type),
                 (state, action) => {
                     state.operationLoading = false;
                     state.operationSuccess = true;
-                    // List is re-fetched in the thunks.
-                    // Update currentProject if it was the one affected
-                    if (action.type === updateProject.fulfilled.type && state.currentProject?._id === action.payload.project?._id) {
-                        state.currentProject = action.payload.project;
-                    }
-                    if (action.type === deleteProject.fulfilled.type && state.currentProject?._id === action.payload.projectId) {
-                        state.currentProject = null; // Clear if current was deleted
+                    if (state.currentProject?._id === action.payload?._id || action.type === createProject.fulfilled.type) {
+                        state.currentProject = action.payload;
                     }
                 }
             )
             .addMatcher(
-                (action) => [createProject.rejected.type, updateProject.rejected.type, deleteProject.rejected.type].includes(action.type),
+                (action) => [
+                    createProject.rejected.type,
+                    updateProject.rejected.type,
+                    deleteProject.rejected.type,
+                    addProjectTeam.rejected.type,
+                    removeProjectTeam.rejected.type,
+                    addProjectClient.rejected.type,
+                    removeProjectClient.rejected.type
+                ].includes(action.type),
                 (state, action) => {
                     state.operationLoading = false;
                     state.operationError = action.payload;
+                    state.operationSuccess = false;
                 }
             );
     },
 });
 
-export const { setCurrentProject, clearProjectOperationStatus } = projectSlice.actions;
+export const { setCurrentProject, clearCurrentProject, clearProjectOperationStatus } = projectSlice.actions;
 
 export default projectSlice.reducer;

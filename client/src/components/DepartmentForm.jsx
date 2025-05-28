@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // AddDepartmentModal.jsx (Refactored for Redux and as a Modal)
 import React, { useEffect } from "react";
 import PropTypes from 'prop-types';

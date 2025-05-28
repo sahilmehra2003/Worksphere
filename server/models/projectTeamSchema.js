@@ -6,7 +6,7 @@ const projectTeamSchema = new mongoose.Schema({
     type: String, 
     required: true,
     trim:true 
-  }, // Updated from `name` to `teamName`
+  }, 
   teamHead: 
   { 
      type: mongoose.Schema.Types.ObjectId,
@@ -19,10 +19,11 @@ const projectTeamSchema = new mongoose.Schema({
   },
   members: [
     {
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Employee', 
-        default:[]
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Employee', 
+     
     },
+    
   ],
   workingOnProject: { 
     type: Boolean, 
@@ -37,9 +38,9 @@ const projectTeamSchema = new mongoose.Schema({
   { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Project', 
-    default: null 
+    default: null
   },
-  departmenntId:{
+  departmentId:{
      type:mongoose.Schema.Types.ObjectId,
      ref:'Department',
      default:null

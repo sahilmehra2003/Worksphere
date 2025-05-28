@@ -1,5 +1,5 @@
-// AddEmployeeForm.jsx
-import React from "react";
+
+import {useEffect} from "react";
 import PropTypes from 'prop-types';
 import {
   Box,
@@ -10,7 +10,7 @@ import {
   Select,
   InputLabel,
   FormControl,
-  CircularProgress, // Added
+  CircularProgress, 
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import toast from "react-hot-toast";

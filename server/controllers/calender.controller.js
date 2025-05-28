@@ -1,7 +1,8 @@
-import mongoose from 'mongoose'; // <-- Import Mongoose (needed for ObjectId validation)
+import mongoose from 'mongoose'; 
 import CountryCalendar from "../models/calender.model.js";
-// 1. Import the utility function (ensure path is correct)
+
 import { getHolidaysForCountry } from '../utility/getCountryHolidays.js';
+
 
 // --- Existing Upsert Function ---
 export const upsertCountryCalendar = async (req, res) => {
@@ -10,19 +11,19 @@ export const upsertCountryCalendar = async (req, res) => {
 
         // Ensure user is authenticated and ID is available
         if (!req.user || !req.user._id) {
-            return res.status(401).json({ message: "User not authenticated" });
+            return res.status(401).json({ success:false, message: "User not authenticated" });
         }
         const createdBy = req.user._id;
 
         if (!country) {
-            return res.status(400).json({ message: "Missing required field: country" });
+            return res.status(400).json({ success: false, message: "Missing required field: country" });
         }
 
         let fetchedHolidaysRaw = [];
         // Determine the target year for fetching holidays
         const targetYear = year ? parseInt(year, 10) : new Date().getFullYear();
         if (isNaN(targetYear)) {
-             return res.status(400).json({ message: "Invalid year provided." });
+            return res.status(400).json({ success: false, message: "Invalid year provided." });
         }
 
         try {
@@ -33,6 +34,7 @@ export const upsertCountryCalendar = async (req, res) => {
             console.error("Error fetching holidays from external service:", calendarificError.message);
             // Consider if you want to stop or allow saving without external holidays
             return res.status(502).json({
+                success: false,
                 message: "Failed to fetch holiday data from external service. Calendar not created/updated.",
                 error: calendarificError.message
             });
@@ -84,14 +86,19 @@ export const upsertCountryCalendar = async (req, res) => {
             }
         );
 
-        res.status(200).json(updatedCalendar);
+        res.status(200).json({
+            success: true,
+            message: `Calendar for ${country} updated successfully.`,
+            data:updatedCalendar
+
+        });
 
     } catch (error) {
         console.error("Error in upsertCountryCalendar controller:", error);
         if (error.name === 'ValidationError') {
-            return res.status(400).json({ message: "Validation Error", error: error.message });
+            return res.status(400).json({ success: false, message: "Validation Error", error: error.message });
         }
-        res.status(500).json({ message: "Error creating/updating country calendar in database", error: error.message });
+        res.status(500).json({success:false, message: "Error creating/updating country calendar in database", error: error.message });
     }
 };
 
@@ -104,7 +111,7 @@ export const addHoliday = async (req, res) => {
 
          // Validate input
         if (!name || !date) {
-            return res.status(400).json({ message: "Missing required fields: name, date (YYYY-MM-DD)" });
+            return res.status(400).json({ success: false, message: "Missing required fields: name, date (YYYY-MM-DD)" });
         }
 
         // Validate and convert date string (assuming YYYY-MM-DD)
@@ -112,7 +119,7 @@ export const addHoliday = async (req, res) => {
         // Check if the conversion resulted in a valid date
         // getTime() returns NaN for invalid dates. Also check if input string was reasonable.
         if (isNaN(holidayDate.getTime()) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-            return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD." });
+            return res.status(400).json({ success: false, message: "Invalid date format. Use YYYY-MM-DD." });
         }
          // Optional: Adjust for timezone if needed, e.g., ensure it's UTC midnight
          // const holidayDateUTC = new Date(Date.UTC(holidayDate.getFullYear(), holidayDate.getMonth(), holidayDate.getDate()));
@@ -134,19 +141,23 @@ export const addHoliday = async (req, res) => {
         );
 
         if (!updatedCalendar) {
-            return res.status(404).json({ message: `Calendar for country ${countryCode.toUpperCase()} not found.` });
+            return res.status(404).json({ success: false, message: `Calendar for country ${countryCode.toUpperCase()} not found.` });
         }
 
         // Respond with the updated calendar (includes the new holiday)
-        res.status(201).json(updatedCalendar); // 201 Created status
+        res.status(201).json({
+            success: true,
+            message: "Holiday added successfully",
+            data:updatedCalendar
+        }); // 201 Created status
 
     } catch (error) {
         console.error("Error adding holiday:", error);
         if (error.name === 'ValidationError') {
             // Mongoose validation error (e.g., required field in subschema)
-            return res.status(400).json({ message: "Validation Error adding holiday", error: error.message });
+            return res.status(400).json({ success: false, message: "Validation Error adding holiday", error: error.message });
         }
-        res.status(500).json({ message: "Error adding holiday to calendar", error: error.message });
+        res.status(500).json({ success: false, message: "Error adding holiday to calendar", error: error.message });
     }
 };
 
@@ -159,7 +170,7 @@ export const deleteHoliday = async (req, res) => {
 
         // Validate the Holiday ID format before hitting the DB
         if (!mongoose.Types.ObjectId.isValid(holidayId)) {
-             return res.status(400).json({ message: "Invalid holiday ID format." });
+            return res.status(400).json({ success: false, message: "Invalid holiday ID format." });
         }
 
         // Use updateOne with $pull to remove the holiday subdocument
@@ -173,20 +184,20 @@ export const deleteHoliday = async (req, res) => {
         // Check results
         if (result.matchedCount === 0) {
             // No document matched the country code
-            return res.status(404).json({ message: `Calendar for country ${countryCode.toUpperCase()} not found.` });
+            return res.status(404).json({ success: false, message: `Calendar for country ${countryCode.toUpperCase()} not found.` });
         }
 
         if (result.modifiedCount === 0) {
             // Document was found, but no subdocument matched the holidayId (or was already deleted)
-            return res.status(404).json({ message: `Holiday with ID ${holidayId} not found in calendar for ${countryCode.toUpperCase()}.` });
+            return res.status(404).json({ success: false, message: `Holiday with ID ${holidayId} not found in calendar for ${countryCode.toUpperCase()}.` });
         }
 
         // If matchedCount > 0 and modifiedCount > 0, deletion was successful
-        res.status(200).json({ message: "Holiday deleted successfully" });
+        res.status(200).json({ success: true, message: "Holiday deleted successfully" });
 
     } catch (error) {
         console.error("Error deleting holiday:", error);
-        res.status(500).json({ message: "Error deleting holiday from calendar", error: error.message });
+        res.status(500).json({ success: false, message: "Error deleting holiday from calendar", error: error.message });
     }
 };
 
@@ -199,13 +210,17 @@ export const getCountryCalendar = async (req, res) => {
         const calendar = await CountryCalendar.findOne({ country: country.toUpperCase() });
 
         if (!calendar) {
-            return res.status(404).json({ message: `Calendar not found for ${country.toUpperCase()}` });
+            return res.status(404).json({ success: false, message: `Calendar not found for ${country.toUpperCase()}` });
         }
 
-        res.status(200).json(calendar);
+        res.status(200).json({
+            success: true,
+            message:'Country calender fetched successfully',
+            data:calendar
+        });
     } catch (error) {
         console.error("Error fetching country calendar:", error);
-        res.status(500).json({ message: "Error fetching calendar", error: error.message });
+        res.status(500).json({ success: false, message: "Error fetching calendar", error: error.message });
     }
 };
 
@@ -213,10 +228,14 @@ export const getAllCountryCalendars = async (req, res) => {
     try {
         // Only select the 'country' field and the unique '_id'
         const calendars = await CountryCalendar.find({}, "country").sort({ country: 1 }); // Sort alphabetically
-        res.status(200).json(calendars);
+        res.status(200).json({
+            success: true,
+            message: 'All country calendars fetched successfully',
+            data:calendars
+        });
     } catch (error) {
         console.error("Error fetching all country calendars:", error);
-        res.status(500).json({ message: "Error fetching list of calendars", error: error.message });
+        res.status(500).json({ success: false, message: "Error fetching list of calendars", error: error.message });
     }
 };
 
@@ -226,12 +245,12 @@ export const deleteCountryCalendar = async (req, res) => {
         const deleted = await CountryCalendar.findOneAndDelete({ country: country.toUpperCase() });
 
         if (!deleted) {
-            return res.status(404).json({ message: `Calendar not found for ${country.toUpperCase()}` });
+            return res.status(404).json({ success: false, message: `Calendar not found for ${country.toUpperCase()}` });
         }
 
-        res.status(200).json({ message: `Calendar for ${country.toUpperCase()} deleted successfully` });
+        res.status(200).json({success:true, message: `Calendar for ${country.toUpperCase()} deleted successfully` });
     } catch (error) {
         console.error("Error deleting country calendar:", error);
-        res.status(500).json({ message: "Error deleting calendar", error: error.message });
+        res.status(500).json({ success: false, message: "Error deleting calendar", error: error.message });
     }
 };
