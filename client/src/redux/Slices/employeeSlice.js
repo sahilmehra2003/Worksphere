@@ -26,6 +26,12 @@ const initialState = {
     loading: false,
     error: null,
     searchQuery: '',
+    filters: {
+        position: '',
+        department: '',
+        employmentStatus: '',
+        workingStatus: '',
+    },
     sortConfig: {
         field: 'name',
         direction: 'asc'
@@ -157,17 +163,18 @@ export const changeEmployeePassword = createAsyncThunk(
     }
 );
 
-// Modify the searchEmployees thunk to use debouncing
+// Modify the searchEmployees thunk to handle all filters
 export const searchEmployees = createAsyncThunk(
     'employee/search',
-    async ({ query, page = 1, limit = 10, sortField, sortDirection }, { rejectWithValue }) => {
+    async ({ query, page = 1, limit = 10, sortField, sortDirection, ...filters }, { rejectWithValue }) => {
         try {
             const params = {
                 page,
                 limit,
                 search: query,
                 sortField,
-                sortDirection
+                sortDirection,
+                ...filters
             };
             const response = await apiConnector('GET', EMPLOYEE_ENDPOINTS.SEARCH_EMPLOYEES_API, null, null, params);
             if (!response.data.success) {
@@ -198,14 +205,22 @@ const employeeSlice = createSlice({
         },
         setSearchQuery: (state, action) => {
             state.searchQuery = action.payload;
-            state.pagination.currentPage = 1; // Reset to first page on new search
+            state.pagination.currentPage = 1;
+        },
+        setFilters: (state, action) => {
+            state.filters = {
+                ...state.filters,
+                ...action.payload
+            };
+            state.pagination.currentPage = 1;
         },
         setSortConfig: (state, action) => {
             state.sortConfig = action.payload;
-            state.pagination.currentPage = 1; // Reset to first page on new sort
+            state.pagination.currentPage = 1;
         },
         resetSearchAndSort: (state) => {
             state.searchQuery = '';
+            state.filters = initialState.filters;
             state.sortConfig = initialState.sortConfig;
             state.pagination.currentPage = 1;
         }
@@ -351,6 +366,7 @@ export const {
     clearEmployeeError,
     clearCurrentProfile,
     setSearchQuery,
+    setFilters,
     setSortConfig,
     resetSearchAndSort
 } = employeeSlice.actions;

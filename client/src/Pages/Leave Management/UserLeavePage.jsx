@@ -4,10 +4,10 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import {
-    Box, Typography, useTheme, CircularProgress, Alert, Paper, Grid, Button
+    Box, Typography, useTheme, CircularProgress, Alert, Paper, Grid,
 } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
-import AddIcon from '@mui/icons-material/Add'; // For apply leave button
+
 
 import LeaveBalanceDisplay from '../../components/Leave/LeaveBalanceDisplay';
 import LeaveHistoryTable from '../../components/Leave/LeaveHistoryTable';
@@ -189,21 +189,7 @@ const UserLeavePage = () => {
                 <Typography variant="h4" gutterBottom component="h1" sx={{ color: theme.palette.text.primary }}>
                     My Leave Dashboard
                 </Typography>
-                <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<AddIcon />}
-                    onClick={() => {
-                        if (calendarRef.current) { // Unselect any current calendar selection
-                            calendarRef.current.getApi().unselect();
-                        }
-                        setSelectionInfo(null); // Clear any previous selection info
-                        setIsApplyModalOpen(true);
-                    }}
-                    disabled={!companyCalendar.countryCode} // Disable if calendar data not loaded
-                >
-                    Apply for Leave
-                </Button>
+               
             </FlexBetween>
 
 

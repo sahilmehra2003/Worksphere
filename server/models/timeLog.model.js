@@ -6,7 +6,7 @@ const timeLogSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Employee',
             required: [true, "Log must belong to an employee."],
-            index: true // Quickly find logs for a specific employee
+            index: true 
         },
         clockInTime: {
             type: Date,
@@ -14,10 +14,9 @@ const timeLogSchema = new mongoose.Schema(
         },
         clockOutTime: {
             type: Date,
-            default: null // Null until the user clocks out
+            default: null 
         },
-        // Stores the specific calendar date (at UTC midnight) this work log pertains to.
-        // Derived from clockInTime for easy daily queries.
+      
         workDate: {
             type: Date,
             required: true,

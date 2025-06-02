@@ -155,20 +155,28 @@ const TimesheetEntryForm = ({ open, onClose, onSuccess, entry = null }) => {
                         <Controller
                             name="date"
                             control={control}
-                            render={({ field }) => (
-                                <DatePicker
-                                    label="Date"
-                                    value={field.value instanceof Date && !isNaN(field.value) ? field.value : null}
-                                    onChange={(date) => field.onChange(date)}
-                                    slotProps={{
-                                        textField: {
-                                            fullWidth: true,
-                                            error: Boolean(errors.date),
-                                            helperText: errors.date?.message,
-                                        },
-                                    }}
-                                />
-                            )}
+                            defaultValue={new Date()}
+                            render={({ field: { onChange, value, ...field } }) => {
+                                // Ensure we have a valid date object
+                                const dateValue = value ? new Date(value) : new Date();
+                                return (
+                                    <DatePicker
+                                        {...field}
+                                        label="Date"
+                                        value={dateValue}
+                                        onChange={(newValue) => {
+                                            onChange(newValue);
+                                        }}
+                                        slotProps={{
+                                            textField: {
+                                                fullWidth: true,
+                                                error: Boolean(errors.date),
+                                                helperText: errors.date?.message,
+                                            },
+                                        }}
+                                    />
+                                );
+                            }}
                         />
 
                         <Controller
@@ -203,9 +211,10 @@ const TimesheetEntryForm = ({ open, onClose, onSuccess, entry = null }) => {
                                     error={Boolean(errors.project)}
                                     helperText={errors.project?.message}
                                     fullWidth
+                                    value={typeof field.value === 'object' ? field.value._id : field.value || ''}
                                 >
                                     <MenuItem value=""><em>Select a Project</em></MenuItem>
-                                    {projects && projects.map((proj) => (
+                                    {projects?.map((proj) => (
                                         <MenuItem key={proj._id} value={proj._id}>
                                             {proj.name}
                                         </MenuItem>
@@ -225,24 +234,18 @@ const TimesheetEntryForm = ({ open, onClose, onSuccess, entry = null }) => {
                                     error={Boolean(errors.client)}
                                     helperText={selectedProjectId ? errors.client?.message : "Please select a project first"}
                                     fullWidth
-                                    disabled={!selectedProjectId} // Disable if no project is selected
+                                    disabled={!selectedProjectId}
+                                    value={typeof field.value === 'object' ? field.value._id : field.value || ''}
                                     InputLabelProps={{ shrink: !!selectedProjectId || !!field.value }}
                                 >
                                     <MenuItem value="">
                                         <em>{selectedProjectId ? (field.value ? "Selected Client" : "No client for this project") : "Select a project first"}</em>
                                     </MenuItem>
-                                    {/* Optionally list all clients if no project is selected, or only the auto-selected one */}
-                                    {selectedProjectId && field.value && clients.find(c => c._id === field.value) &&
-                                        <MenuItem key={field.value} value={field.value}>
-                                            {clients.find(c => c._id === field.value)?.name}
+                                    {selectedProjectId && field.value && clients?.find(c => c._id === (typeof field.value === 'object' ? field.value._id : field.value)) && (
+                                        <MenuItem key={typeof field.value === 'object' ? field.value._id : field.value} value={typeof field.value === 'object' ? field.value._id : field.value}>
+                                            {clients.find(c => c._id === (typeof field.value === 'object' ? field.value._id : field.value))?.name}
                                         </MenuItem>
-                                    }
-                                    {/* If you want to allow changing client even after auto-selection from project: */}
-                                    {/* {clients && clients.map((client) => (
-                                        <MenuItem key={client._id} value={client._id}>
-                                            {client.name}
-                                        </MenuItem>
-                                    ))} */}
+                                    )}
                                 </TextField>
                             )}
                         />
@@ -258,9 +261,10 @@ const TimesheetEntryForm = ({ open, onClose, onSuccess, entry = null }) => {
                                     error={Boolean(errors.task)}
                                     helperText={errors.task?.message}
                                     fullWidth
+                                    value={typeof field.value === 'object' ? field.value._id : field.value || ''}
                                 >
                                     <MenuItem value=""><em>None</em></MenuItem>
-                                    {allTasks && allTasks.map((task) => (
+                                    {allTasks?.map((task) => (
                                         <MenuItem key={task._id} value={task._id}>
                                             {task.title}
                                         </MenuItem>

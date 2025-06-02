@@ -1,46 +1,99 @@
-// src/components/TransactionTimeline.jsx
-
-import React from 'react'; 
-import PropTypes from 'prop-types'; // For prop validation
+import PropTypes from 'prop-types';
 import { Timeline, TimelineItem, TimelineSeparator, TimelineConnector, TimelineDot, TimelineContent, TimelineOppositeContent } from '@mui/lab';
-import { Typography, Paper, Box } from '@mui/material'; 
+import { Typography, Paper } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 
 const TimelineCard = ({ month, year, expenses, revenue, profit }) => {
     const theme = useTheme();
 
-    // Format numbers to be more readable, e.g., with commas
     const formatCurrency = (value) => {
         if (value == null) return 'N/A';
-        return value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(value);
     };
 
+    const getProfitIcon = (profit) => {
+        if (profit > 0) {
+            return <TrendingUpIcon sx={{ color: theme.palette.success.main }} />;
+        } else if (profit < 0) {
+            return <TrendingDownIcon sx={{ color: theme.palette.error.main }} />;
+        }
+        return <MonetizationOnIcon sx={{ color: theme.palette.text.secondary }} />;
+    };
 
     return (
         <TimelineItem>
-            <TimelineOppositeContent sx={{ m: "auto 0" }} align="right" variant="body2" color={theme.palette.text.secondary}> {/* Changed color for better theme integration */}
+            <TimelineOppositeContent
+                sx={{
+                    m: "auto 0",
+                    color: theme.palette.text.secondary
+                }}
+                align="right"
+                variant="body2"
+            >
                 {month} {year}
             </TimelineOppositeContent>
             <TimelineSeparator>
-                <TimelineConnector sx={{ bgcolor: 'secondary.main' }} /> {/* Use theme color */}
-                <TimelineDot sx={{ backgroundColor: theme.palette.secondary.main }}> {/* Use theme color */}
-                    <MonetizationOnIcon sx={{ color: theme.palette.secondary.contrastText }} /> {/* Ensure icon contrasts with dot */}
+                <TimelineConnector sx={{ bgcolor: theme.palette.divider }} />
+                <TimelineDot
+                    sx={{
+                        backgroundColor: profit >= 0 ? theme.palette.success.main : theme.palette.error.main,
+                        boxShadow: 3
+                    }}
+                >
+                    {getProfitIcon(profit)}
                 </TimelineDot>
-                <TimelineConnector sx={{ bgcolor: 'secondary.main' }} />
+                <TimelineConnector sx={{ bgcolor: theme.palette.divider }} />
             </TimelineSeparator>
-            <TimelineContent sx={{ py: '12px', px: 2 }}> {/* Added some padding */}
-                <Typography variant="subtitle1" component="span" sx={{ color: theme.palette.text.primary, fontWeight: 'medium' }}> {/* Changed variant and color */}
-                    Revenue: ${formatCurrency(revenue)}
-                </Typography>
-                <Typography variant="body2" component="span" sx={{ color: theme.palette.text.secondary, mx: 1 }}>|</Typography> {/* Separator */}
-                <Typography variant="subtitle1" component="span" sx={{ color: theme.palette.text.primary, fontWeight: 'medium' }}>
-                    Expenses: ${formatCurrency(expenses)}
-                </Typography>
-                <Typography variant="body2" component="span" sx={{ color: theme.palette.text.secondary, mx: 1 }}>|</Typography>
-                <Typography variant="subtitle1" component="span" sx={{ color: profit >= 0 ? theme.palette.success.main : theme.palette.error.main, fontWeight: 'bold' }}> {/* Conditional color for profit */}
-                    Profit: ${formatCurrency(profit)}
-                </Typography>
+            <TimelineContent sx={{ py: '12px', px: 2 }}>
+                <Paper
+                    elevation={2}
+                    sx={{
+                        p: 2,
+                        backgroundColor: theme.palette.background.paper,
+                        borderRadius: 2
+                    }}
+                >
+                    <Typography
+                        variant="subtitle1"
+                        component="span"
+                        sx={{
+                            color: theme.palette.success.main,
+                            fontWeight: 'medium',
+                            mr: 2
+                        }}
+                    >
+                        Revenue: {formatCurrency(revenue)}
+                    </Typography>
+                    <Typography
+                        variant="subtitle1"
+                        component="span"
+                        sx={{
+                            color: theme.palette.error.main,
+                            fontWeight: 'medium',
+                            mr: 2
+                        }}
+                    >
+                        Expenses: {formatCurrency(expenses)}
+                    </Typography>
+                    <Typography
+                        variant="subtitle1"
+                        component="span"
+                        sx={{
+                            color: profit >= 0 ? theme.palette.success.main : theme.palette.error.main,
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        Profit: {formatCurrency(profit)}
+                    </Typography>
+                </Paper>
             </TimelineContent>
         </TimelineItem>
     );
@@ -50,19 +103,30 @@ const TimelineCard = ({ month, year, expenses, revenue, profit }) => {
 TimelineCard.propTypes = {
     month: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     year: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    expenses: PropTypes.number,
-    revenue: PropTypes.number,
-    profit: PropTypes.number,
+    expenses: PropTypes.number.isRequired,
+    revenue: PropTypes.number.isRequired,
+    profit: PropTypes.number.isRequired
 };
 
-
-const TransactionTimeline = ({ transactions = [] }) => { // Receive transactions as a prop, default to empty array
+const TransactionTimeline = ({ transactions = [] }) => {
     const theme = useTheme();
 
     if (!transactions || transactions.length === 0) {
         return (
-            <Paper elevation={3} style={{ padding: '20px', margin: '20px', backgroundColor: theme.palette.background.alt, textAlign: 'center' }}>
-                <Typography variant="h6" style={{ color: theme.palette.text.secondary }}>
+            <Paper
+                elevation={3}
+                sx={{
+                    p: 3,
+                    m: 2,
+                    backgroundColor: theme.palette.background.paper,
+                    borderRadius: 2,
+                    textAlign: 'center'
+                }}
+            >
+                <Typography
+                    variant="h6"
+                    sx={{ color: theme.palette.text.secondary }}
+                >
                     No transaction data available for the timeline.
                 </Typography>
             </Paper>
@@ -70,20 +134,36 @@ const TransactionTimeline = ({ transactions = [] }) => { // Receive transactions
     }
 
     return (
-        <Paper elevation={3} style={{ padding: '20px', margin: '20px', backgroundColor: theme.palette.background.alt }}>
-            <Typography variant="h4" component="h2" style={{ color: theme.palette.text.primary, textAlign: "center", marginBottom: "20px" }}> {/* Adjusted variant and color */}
+        <Paper
+            elevation={3}
+            sx={{
+                p: 3,
+                m: 2,
+                backgroundColor: theme.palette.background.paper,
+                borderRadius: 2
+            }}
+        >
+            <Typography
+                variant="h4"
+                component="h2"
+                sx={{
+                    color: theme.palette.text.primary,
+                    textAlign: "center",
+                    mb: 3
+                }}
+            >
                 Transaction Timeline
             </Typography>
             <Timeline position="alternate">
-                {transactions.map(transaction => (
-                    // Ensure your transaction object has month, year, expenses, revenue, profit, and _id
+                {transactions.map((transaction, index) => (
                     <TimelineCard
-                        key={transaction._id}
-                        month={transaction.month} // Assuming month is directly available (e.g., "January", or a number)
+                        key={`${transaction.month}-${transaction.year}-${index}`}
+                        month={transaction.month}
                         year={transaction.year}
                         expenses={transaction.expenses}
                         revenue={transaction.revenue}
                         profit={transaction.profit}
+                        transactionIds={transaction.transactionIds}
                     />
                 ))}
             </Timeline>
@@ -94,13 +174,12 @@ const TransactionTimeline = ({ transactions = [] }) => { // Receive transactions
 // Define PropTypes for TransactionTimeline
 TransactionTimeline.propTypes = {
     transactions: PropTypes.arrayOf(PropTypes.shape({
-        _id: PropTypes.string.isRequired,
-        month: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-        year: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-        expenses: PropTypes.number,
-        revenue: PropTypes.number,
-        profit: PropTypes.number,
-        // Add other expected fields from your transaction object if needed for validation
+        month: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        year: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        expenses: PropTypes.number.isRequired,
+        revenue: PropTypes.number.isRequired,
+        profit: PropTypes.number.isRequired,
+        transactionIds: PropTypes.arrayOf(PropTypes.string)
     }))
 };
 

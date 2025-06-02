@@ -6,7 +6,7 @@ export const tokensCustom = {
         300: "#3A6FA5",  // Darker
     },
     black: {
-        100: "#0B1120",  // Paper (dark)
+        100: "#0B1120",  
         150: "#111827",  // Background (dark)
         200: "#181A33",  // Extra dark shade
     },
@@ -21,7 +21,7 @@ export const tokensCustom = {
         500: "#4B5563",  // Secondary text (light)
     },
     deepBlue: {
-        100: "#301E67", // For `primary.dark`
+        100: "#4b779b", // For `primary.dark`
     }
 };
 

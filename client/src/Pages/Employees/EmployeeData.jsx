@@ -19,6 +19,9 @@ import {
   IconButton,
   CircularProgress,
   Tooltip,
+  TextField,
+  Grid,
+  MenuItem,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import EditIcon from "@mui/icons-material/Edit";
@@ -31,9 +34,10 @@ import EditEmployeeModal from "./EditEmployee";
 import {
   fetchAllEmployeesInternal,
   setEmployeeInactive,
-  clearEmployeeError // To clear errors after displaying them
-  // Other actions like setSearchQuery, setSortConfig can be used if you implement search/sort UI
-} from "../../redux/Slices/employeeSlice"; // Adjust path
+  clearEmployeeError,
+  searchEmployees,
+} from "../../redux/Slices/employeeSlice";
+import { fetchAllDepartments } from "../../redux/Slices/departmentSlice";
 import { toast } from 'react-hot-toast';
 
 const EmployeeData = () => {
@@ -46,39 +50,57 @@ const EmployeeData = () => {
     loading,
     error,
     pagination,
-    // searchQuery, // For future use with search inputs
-    // sortConfig,  // For future use with table sorting
   } = useSelector((state) => state.employee);
-  const { user: authUser } = useSelector((state) => state.auth); // For role-based actions
+  const { user: authUser } = useSelector((state) => state.auth);
+  const { departments } = useSelector((state) => state.department);
 
-  // Local state for MUI TablePagination (0-indexed) and modals
-  const [page, setPage] = useState(0); // Corresponds to pagination.currentPage - 1
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // Local state for MUI TablePagination and modals
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(4);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentEditingEmployee, setCurrentEditingEmployee] = useState(null);
 
-  const isAdmin = authUser?.role === 'Admin' || authUser?.role === 'HR'; // Example roles
+  // New state for search and filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState({
+    role: '',
+    department: '',
+    employmentStatus: '',
+    workingStatus: '',
+  });
 
-  // Fetch employees based on page, rowsPerPage, and potential filters
+  const isAdmin = authUser?.role === 'Admin' || authUser?.role === 'HR';
+
+  // Fetch departments when component mounts
+  useEffect(() => {
+    dispatch(fetchAllDepartments());
+  }, [dispatch]);
+
+  // Fetch employees based on page, rowsPerPage, search, and filters
   useEffect(() => {
     const departmentId = new URLSearchParams(location.search).get("departmentId");
-    const filters = departmentId ? { department: departmentId } : {};
-    // Redux pagination is 1-indexed, MUI TablePagination is 0-indexed
-    dispatch(fetchAllEmployeesInternal({ page: page + 1, limit: rowsPerPage, filters }));
-  }, [dispatch, location.search, page, rowsPerPage]);
+    const searchParams = {
+      page: page + 1,
+      limit: rowsPerPage,
+      search: searchQuery,
+      ...filters,
+      ...(departmentId ? { department: departmentId } : {}),
+    };
+    dispatch(searchEmployees(searchParams));
+  }, [dispatch, location.search, page, rowsPerPage, searchQuery, filters]);
 
-  // Effect to sync local page with Redux pagination if it changes externally
+  // Effect to sync local page with Redux pagination
   useEffect(() => {
     setPage(pagination.currentPage - 1);
   }, [pagination.currentPage]);
 
-  // Effect to display and clear errors from Redux state
+  // Effect to display and clear errors
   useEffect(() => {
     if (error) {
       toast.error(error);
-      dispatch(clearEmployeeError()); // Clear the error after showing it
+      dispatch(clearEmployeeError());
     }
   }, [error, dispatch]);
 
@@ -87,8 +109,8 @@ const EmployeeData = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0); // Reset to first page when rows per page changes
+    setRowsPerPage(parseInt(event.target.value, 4));
+    setPage(0);
   };
 
   const handleSelectAllClick = (event) => {
@@ -105,9 +127,9 @@ const EmployeeData = () => {
       const selectedIndex = prevSelected.indexOf(employeeId);
       let newSelected = [];
 
-      if (selectedIndex === -1) { // Not currently selected
+      if (selectedIndex === -1) {
         newSelected = newSelected.concat(prevSelected, employeeId);
-      } else { // Currently selected, so deselect
+      } else {
         newSelected = prevSelected.filter(id => id !== employeeId);
       }
       return newSelected;
@@ -121,18 +143,14 @@ const EmployeeData = () => {
     }
     if (window.confirm(`Are you sure you want to deactivate ${selectedEmployees.length} selected employee(s)? This will mark them as inactive.`)) {
       try {
-        // Dispatch deactivation for all selected employees
-        // Consider Promise.all if you want to wait for all to complete
         for (const employeeId of selectedEmployees) {
           await dispatch(setEmployeeInactive(employeeId)).unwrap();
         }
         toast.success("Selected employees have been deactivated successfully.");
-        setSelectedEmployees([]); // Clear selection
-        // Re-fetch employees to reflect changes
-        dispatch(fetchAllEmployeesInternal({ page: 1, limit: rowsPerPage })); // Fetch page 1 or current page
-        setPage(0); // Reset to page 0 after deactivation
+        setSelectedEmployees([]);
+        dispatch(searchEmployees({ page: 1, limit: rowsPerPage }));
+        setPage(0);
       } catch (err) {
-        // Error is handled by the useEffect listening to 'error' in employeeSlice
         console.error("Error deactivating employees:", err);
       }
     }
@@ -145,16 +163,35 @@ const EmployeeData = () => {
     setCurrentEditingEmployee(employee);
     setShowEditModal(true);
   };
+
   const handleCloseEditModal = () => {
     setCurrentEditingEmployee(null);
     setShowEditModal(false);
   };
 
   const handleEmployeeOperationSuccess = () => {
-    // Re-fetch the current page data to reflect additions or updates
     const departmentId = new URLSearchParams(location.search).get("departmentId");
-    const filters = departmentId ? { department: departmentId } : {};
-    dispatch(fetchAllEmployeesInternal({ page: page + 1, limit: rowsPerPage, filters }));
+    const searchParams = {
+      page: page + 1,
+      limit: rowsPerPage,
+      search: searchQuery,
+      ...filters,
+      ...(departmentId ? { department: departmentId } : {}),
+    };
+    dispatch(searchEmployees(searchParams));
+  };
+
+  const handleSearchChange = (event) => {
+    setSearchQuery(event.target.value);
+    setPage(0); // Reset to first page on new search
+  };
+
+  const handleFilterChange = (field, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    setPage(0); // Reset to first page on filter change
   };
 
   if (loading && employees.length === 0) {
@@ -173,6 +210,7 @@ const EmployeeData = () => {
         </Typography>
         {isAdmin && !showAddModal && (
           <Button
+            sx={{ backgroundColor: theme.palette.primary.main }}
             variant="contained"
             color="secondary"
             startIcon={<AddIcon />}
@@ -211,6 +249,87 @@ const EmployeeData = () => {
 
       {!showAddModal && (
         <>
+          {/* Search and Filters Section */}
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  label="Search by Name or Email"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Role"
+                  value={filters.position}
+                  onChange={(e) => handleFilterChange('role', e.target.value)}
+                  size="small"
+                >
+                  <MenuItem value="">All Roles</MenuItem>
+                  <MenuItem value="Employee">Employee</MenuItem>
+                  <MenuItem value="TeamHead">Team Head</MenuItem>
+                  <MenuItem value="Manager">Manager</MenuItem>
+                  <MenuItem value="HR">HR</MenuItem>
+                  <MenuItem value="Admin">Admin</MenuItem>
+                  
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Department"
+                  value={filters.department}
+                  onChange={(e) => handleFilterChange('department', e.target.value)}
+                  size="small"
+                >
+                  <MenuItem value="">All Departments</MenuItem>
+                  {departments?.map((dept) => (
+                    <MenuItem key={dept._id} value={dept._id}>
+                      {dept.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Employment Status"
+                  value={filters.employmentStatus}
+                  onChange={(e) => handleFilterChange('employmentStatus', e.target.value)}
+                  size="small"
+                >
+                  <MenuItem value="">All Status</MenuItem>
+                  <MenuItem value="working">Working</MenuItem>
+                  <MenuItem value="resigned">Resigned</MenuItem>
+                  <MenuItem value="terminated">Terminated</MenuItem>
+                  <MenuItem value="pending_approval">Pending Approval</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Working Status"
+                  value={filters.workingStatus}
+                  onChange={(e) => handleFilterChange('workingStatus', e.target.value)}
+                  size="small"
+                >
+                  <MenuItem value="">All Working Status</MenuItem>
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="onLeave">On Leave</MenuItem>
+                  <MenuItem value="workFromHome">Work From Home</MenuItem>
+                </TextField>
+              </Grid>
+            </Grid>
+          </Paper>
+
           {isAdmin && selectedEmployees.length > 0 && (
             <Box mb={2} display="flex" justifyContent="flex-end">
               <Button
@@ -218,20 +337,22 @@ const EmployeeData = () => {
                 color="error"
                 startIcon={<DeleteIcon />}
                 onClick={handleDeactivateSelected}
-                disabled={loading} // Disable if main list is loading
+                disabled={loading}
               >
                 Deactivate Selected ({selectedEmployees.length})
               </Button>
             </Box>
           )}
+
           <Paper sx={{ width: '100%', overflowX: "auto" }}>
-            <TableContainer>
+            <TableContainer component={Paper} elevation={0}>
               <Table stickyHeader aria-label="sticky table">
                 <TableHead>
                   <TableRow>
                     {isAdmin && (
-                      <TableCell padding="checkbox" sx={{ backgroundColor: theme.palette.background.alt }}>
+                      <TableCell padding="checkbox" sx={{ backgroundColor: theme.palette.primary.main }}>
                         <Checkbox
+                          color={theme.palette.background.default}
                           indeterminate={selectedEmployees.length > 0 && selectedEmployees.length < (employees?.length || 0)}
                           checked={(employees?.length || 0) > 0 && selectedEmployees.length === (employees?.length || 0)}
                           onChange={handleSelectAllClick}
@@ -239,26 +360,27 @@ const EmployeeData = () => {
                         />
                       </TableCell>
                     )}
-                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Name</TableCell>
-                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Email</TableCell>
-                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Phone</TableCell>
-                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Position</TableCell>
-                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Department</TableCell>
-                    <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Status</TableCell>
-                    {isAdmin && <TableCell sx={{ backgroundColor: theme.palette.background.alt, color: theme.palette.text.primary, fontWeight: 'bold' }}>Actions</TableCell>}
+                    <TableCell sx={{ backgroundColor: theme.palette.primary.main, color: theme.palette.text.light, fontWeight: 'bold', border: `1px solid ${theme.palette.divider}` }}><Typography variant="h5">Name</Typography></TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.primary.main, color: theme.palette.text.light, fontWeight: 'bold', border: `1px solid ${theme.palette.divider}` }}><Typography variant="h5">Email</Typography></TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.primary.main, color: theme.palette.text.light, fontWeight: 'bold', border: `1px solid ${theme.palette.divider}` }}><Typography variant="h5">Phone</Typography></TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.primary.main, color: theme.palette.text.light, fontWeight: 'bold', border: `1px solid ${theme.palette.divider}` }}><Typography variant="h5">Role</Typography></TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.primary.main, color: theme.palette.text.light, fontWeight: 'bold', border: `1px solid ${theme.palette.divider}` }}><Typography variant="h5">Department</Typography></TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.primary.main, color: theme.palette.text.light, fontWeight: 'bold', border: `1px solid ${theme.palette.divider}` }}><Typography variant="h5">Employment Status</Typography></TableCell>
+                    <TableCell sx={{ backgroundColor: theme.palette.primary.main, color: theme.palette.text.light, fontWeight: 'bold', border: `1px solid ${theme.palette.divider}` }}><Typography variant="h5">Working Status</Typography></TableCell>
+                    {isAdmin && <TableCell sx={{ backgroundColor: theme.palette.primary.main, color: theme.palette.text.light, fontWeight: 'bold', border: `1px solid ${theme.palette.divider}` }}><Typography variant="h5">Actions</Typography></TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {loading && employees.length > 0 && ( // Show inline loading only if some employees are already displayed
+                  {loading && employees.length > 0 && (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 8 : 7} align="center">
+                      <TableCell colSpan={isAdmin ? 9 : 8} align="center">
                         <CircularProgress size={24} />
                       </TableCell>
                     </TableRow>
                   )}
                   {!loading && (!employees || employees.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 8 : 7} align="center">
+                      <TableCell colSpan={isAdmin ? 9 : 8} align="center">
                         <Typography>No employees found.</Typography>
                       </TableCell>
                     </TableRow>
@@ -267,7 +389,7 @@ const EmployeeData = () => {
                     <TableRow
                       key={employee._id}
                       hover
-                      onClick={(event) => { // Allow row click for selection if not clicking checkbox/button
+                      onClick={(event) => {
                         if (isAdmin && event.target.type !== 'checkbox' && !event.target.closest('button')) {
                           handleSelectEmployee(employee._id);
                         }
@@ -278,29 +400,31 @@ const EmployeeData = () => {
                       selected={selectedEmployees.includes(employee._id)}
                     >
                       {isAdmin && (
-                        <TableCell padding="checkbox">
+                        <TableCell padding="checkbox" sx={{ border: `1px solid ${theme.palette.divider}` }}>
                           <Checkbox
+                            color={theme.palette.background.default}
                             checked={selectedEmployees.includes(employee._id)}
                             onChange={(event) => {
-                              event.stopPropagation(); // Prevent row click from firing
+                              event.stopPropagation();
                               handleSelectEmployee(employee._id);
                             }}
                             inputProps={{ 'aria-labelledby': `employee-checkbox-${employee._id}` }}
                           />
                         </TableCell>
                       )}
-                      <TableCell id={`employee-checkbox-${employee._id}`}>{employee.name}</TableCell>
-                      <TableCell>{employee.email}</TableCell>
-                      <TableCell>{employee.phoneNumber}</TableCell>
-                      <TableCell>{employee.position}</TableCell>
-                      <TableCell>{employee.department?.name || "N/A"}</TableCell>
-                      <TableCell>{employee.employmentStatus}</TableCell>
+                      <TableCell sx={{ border: `1px solid ${theme.palette.divider}` }} id={`employee-checkbox-${employee._id}`}><Typography variant="body1">{employee.name}</Typography></TableCell>
+                      <TableCell sx={{ border: `1px solid ${theme.palette.divider}` }}><Typography variant="body1">{employee.email}</Typography></TableCell>
+                      <TableCell sx={{ border: `1px solid ${theme.palette.divider}` }}><Typography variant="body1">{employee.phoneNumber}</Typography></TableCell>
+                      <TableCell sx={{ border: `1px solid ${theme.palette.divider}` }}><Typography variant="body1">{employee.role}</Typography></TableCell>
+                      <TableCell sx={{ border: `1px solid ${theme.palette.divider}` }}><Typography variant="body1">{employee.department?.name || "N/A"}</Typography></TableCell>
+                      <TableCell sx={{ border: `1px solid ${theme.palette.divider}` }}><Typography variant="body1">{employee.employmentStatus}</Typography></TableCell>
+                      <TableCell sx={{ border: `1px solid ${theme.palette.divider}` }}><Typography variant="body1">{employee.workingStatus || "N/A"}</Typography></TableCell>
                       {isAdmin && (
-                        <TableCell>
+                        <TableCell sx={{ border: `1px solid ${theme.palette.divider}` }}>
                           <Tooltip title="Edit Employee">
                             <IconButton
                               onClick={(event) => {
-                                event.stopPropagation(); // Prevent row click
+                                event.stopPropagation();
                                 handleOpenEditModal(employee);
                               }}
                               size="small"
@@ -318,9 +442,9 @@ const EmployeeData = () => {
             <TablePagination
               rowsPerPageOptions={[5, 10, 25, 50]}
               component="div"
-              count={pagination.totalRecords || 0} // Use totalRecords from backend pagination
+              count={pagination.totalRecords || 0}
               rowsPerPage={rowsPerPage}
-              page={page} // Use local page state
+              page={page}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
             />

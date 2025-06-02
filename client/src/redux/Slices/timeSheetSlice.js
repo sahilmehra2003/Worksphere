@@ -225,6 +225,23 @@ export const rejectTimesheet = createAsyncThunk(
 );
 
 
+export const deleteTimesheet = createAsyncThunk(
+    'timesheet/delete',
+    async (timesheetId, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('DELETE', TIMESHEET_ENDPOINTS.DELETE_TIMESHEET_API(timesheetId));
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to delete timesheet.');
+            }
+            // Optionally refresh lists here
+            return response.data;
+        } catch (error) {
+            const message = error.response?.data?.message || error.message || 'Failed to delete timesheet.';
+            return rejectWithValue(message);
+        }
+    }
+);
+
 const timesheetSlice = createSlice({
     name: 'timesheet',
     initialState,
@@ -275,7 +292,15 @@ const timesheetSlice = createSlice({
             .addCase(fetchTimesheetById.pending, (state) => { state.detailsLoading = true; state.error = null; state.currentTimesheetDetails = null; })
             .addCase(fetchTimesheetById.fulfilled, (state, action) => {
                 state.detailsLoading = false;
-                state.currentTimesheetDetails = action.payload; // { timesheet, entries }
+                // Merge entries into the timesheet object for frontend convenience
+                if (action.payload?.data?.timesheet && action.payload?.data?.entries) {
+                    state.currentTimesheetDetails = {
+                        ...action.payload.data.timesheet,
+                        entries: action.payload.data.entries
+                    };
+                } else {
+                    state.currentTimesheetDetails = null;
+                }
             })
             .addCase(fetchTimesheetById.rejected, (state, action) => { state.detailsLoading = false; state.error = action.payload; state.currentTimesheetDetails = null; })
 

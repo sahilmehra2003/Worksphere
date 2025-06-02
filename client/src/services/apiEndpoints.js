@@ -25,6 +25,7 @@ export const EMPLOYEE_ENDPOINTS = {
     UPDATE_EMPLOYEE_PROFILE_API: (employeeId) => createUrl(`/employeeInfo/employees/${employeeId}`),
     SET_EMPLOYEE_INACTIVE_API: (employeeId) => createUrl(`/employeeInfo/employees/setInactive/${employeeId}`),
     COMPLETE_PROFILE_API: createUrl('/employeeInfo/complete-profile'),
+    SEARCH_EMPLOYEES_API: createUrl('/employeeInfo/employees'),
 }
 
 export const DEPARTMENT_ENDPOINTS = {
@@ -113,11 +114,29 @@ export const TIMESHEET_ENDPOINTS = {
     SUBMIT_TIMESHEET_API: (timesheetId) => createUrl(`/timesheet/draftTimeSheet/${timesheetId}/submit`),
     APPROVE_TIMESHEET_API: (timesheetId) => createUrl(`/timesheet/approveTimesheet/${timesheetId}/approve`),
     REJECT_TIMESHEET_API: (timesheetId) => createUrl(`/timesheet/checkTimesheet/${timesheetId}/reject`),
+    DELETE_TIMESHEET_API: (timesheetId) => createUrl(`/timesheet/${timesheetId}`),
 };
 
 export const TRANSACTION_ENDPOINTS = {
-    GET_TRANSACTION_BY_ID_API: (transactionId) => createUrl(`/transactionsDetails/transaction/${transactionId}`),
+    // Basic CRUD operations
     GET_ALL_TRANSACTIONS_API: createUrl('/transactionsDetails/transactions'),
+    GET_TRANSACTION_BY_ID_API: (transactionId) => createUrl(`/transactionsDetails/transaction/${transactionId}`),
+    CREATE_TRANSACTION_API: createUrl('/transactionsDetails/transaction'),
+    UPDATE_TRANSACTION_API: (transactionId) => createUrl(`/transactionsDetails/transaction/${transactionId}`),
+    DELETE_TRANSACTION_API: (transactionId) => createUrl(`/transactionsDetails/transaction/${transactionId}`),
+
+    // Reports and Analytics
+    GET_MONTHLY_REPORT_API: createUrl('/transactionsDetails/transactions/monthly-report'),
+    GET_AVAILABLE_YEARS_API: createUrl('/transactionsDetails/transactions/available-years'),
+    GET_DEPARTMENT_TRANSACTIONS_API: (departmentId) => createUrl(`/transactionsDetails/transactions/department/${departmentId}`),
+    GET_PROJECT_TRANSACTIONS_API: (projectId) => createUrl(`/transactionsDetails/transactions/project/${projectId}`),
+    GET_CLIENT_TRANSACTIONS_API: (clientId) => createUrl(`/transactionsDetails/transactions/client/${clientId}`),
+
+    // Approval workflow
+    APPROVE_TRANSACTION_API: (transactionId) => createUrl(`/transactionsDetails/transaction/${transactionId}/approve`),
+
+    // Statistics
+    GET_TRANSACTION_STATS_API: createUrl('/transactionsDetails/transactions/stats'),
 };
 
 export const PROJECT_ENDPOINTS = {

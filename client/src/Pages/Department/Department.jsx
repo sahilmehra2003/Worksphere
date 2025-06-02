@@ -1,5 +1,5 @@
 // DepartmentSlider.jsx
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from "@mui/material/styles";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
@@ -25,8 +25,6 @@ import {
   CircularProgress,
   Alert,
   Paper,
-  IconButton,
-  Tooltip
 } from "@mui/material";
 import { NavLink } from "react-router-dom";
 import {
@@ -34,7 +32,7 @@ import {
   setCurrentDepartmentByIndex,
   setDepartmentInactive,
   clearDepartmentOperationStatus
-} from "../../redux/Slices/departmentSlice"; // Adjust path
+} from "../../redux/Slices/departmentSlice";
 import { toast } from "react-hot-toast";
 
 const DepartmentSlider = () => {
@@ -217,8 +215,8 @@ const DepartmentSlider = () => {
           <Grid container justifyContent="space-between" alignItems="center" width="100%" mb={2}>
             <Grid item>
               <Typography variant="subtitle1" color="textSecondary">
-                Head: {departmentToDisplay.departmentHead?.name || "N/A"} | Members:{" "}
-                {departmentToDisplay.totalMembers || "N/A"}
+                Head: {departmentToDisplay.departmentHead?.name || "Not Assigned"} | Members:{" "}
+                {departmentToDisplay.totalMembers || 0}
               </Typography>
             </Grid>
             <Grid item>
@@ -252,23 +250,35 @@ const DepartmentSlider = () => {
                         to={`/app/employees?departmentId=${departmentToDisplay._id}`}
                         style={{ color: theme.palette.primary.main, textDecoration: "none", fontWeight: "bold" }}
                       >
-                        View Employees ({departmentToDisplay.employees?.length || 0})
+                        View Employees ({departmentToDisplay.totalMembers || 0})
                       </NavLink>
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ textAlign: "center", fontWeight: "bold", border: `1px solid ${theme.palette.divider}` }}>Projects</TableCell>
                     <TableCell sx={{ textAlign: "center", border: `1px solid ${theme.palette.divider}` }}>
-                      {departmentToDisplay.currentProjects?.length > 0
-                        ? departmentToDisplay.currentProjects.map((proj) => (typeof proj === 'object' ? proj.name : proj) || 'Unnamed Project').join(', ')
-                        : "No current projects"}
+                      {departmentToDisplay.currentProjects?.length > 0 ? (
+                        <Box>
+                          {departmentToDisplay.currentProjects.map((proj, index) => (
+                            <Box key={proj._id} mb={index < departmentToDisplay.currentProjects.length - 1 ? 1 : 0}>
+                              <Typography variant="body2">
+                                {typeof proj === 'object' ? proj.description : proj}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      ) : (
+                        "No current projects"
+                      )}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ textAlign: "center", fontWeight: "bold", border: `1px solid ${theme.palette.divider}` }}>Clients</TableCell>
                     <TableCell sx={{ textAlign: "center", border: `1px solid ${theme.palette.divider}` }}>
                       {departmentToDisplay.clientsAllocated?.length > 0
-                        ? departmentToDisplay.clientsAllocated.map((client) => (typeof client === 'object' ? client.name : client) || 'Unnamed Client').join(', ')
+                        ? departmentToDisplay.clientsAllocated.map((client) =>
+                          typeof client === 'object' ? client.name : client
+                        ).join(', ')
                         : "No clients allocated"}
                     </TableCell>
                   </TableRow>
@@ -282,12 +292,12 @@ const DepartmentSlider = () => {
           </Box>
 
           {isAdmin && (
-            <FlexBetween style={{ marginTop: "20px" }} width="auto" gap={2}> {/* Used FlexBetween and gap */}
+            <FlexBetween style={{ marginTop: "20px" }} width="auto" gap={2}>
               <Button
                 variant="contained"
                 color="primary"
                 startIcon={<AddIcon />}
-                onClick={handleOpenAddModal} // This opens the Add Modal
+                onClick={handleOpenAddModal}
                 disabled={operationLoading}
               >
                 Add Department

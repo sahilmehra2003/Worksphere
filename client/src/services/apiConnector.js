@@ -5,20 +5,30 @@ const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 
 export const axiosInstance = axios.create({
     baseURL: API_BASE_URL,
-    withCredentials: true
+    withCredentials: true,
+    headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
 });
 
-// Modified to accept a signal
-export const apiConnector = (method, url, bodyData, headers, params, signal) => {
-    console.log(`[apiConnector] Sending request: ${method} ${url}`, { bodyData, headers, params, hasSignal: !!signal });
-    return axiosInstance({
-        method: `${method}`,
-        url: `${url}`,
-        data: bodyData ? bodyData : null,
-        headers: headers ? headers : null,
-        params: params ? params : null,
-        signal: signal // Pass the signal to axios
-    })
+// Modified to handle params correctly
+export const apiConnector = (method, url, bodyData, headers, params) => {
+    console.log(`[apiConnector] Sending request: ${method} ${url}`, { bodyData, headers, params });
+
+    const config = {
+        method: method,
+        url: url,
+        data: bodyData || null,
+        params: params || null
+    };
+
+    // Only add headers if they are provided
+    if (headers) {
+        config.headers = headers;
+    }
+
+    return axiosInstance(config)
         .then(response => {
             console.log(`[apiConnector] Response from ${url}:`, response.data);
             return response;

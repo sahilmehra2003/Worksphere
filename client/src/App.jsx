@@ -8,6 +8,9 @@ import Dashboard from './Pages/dashboard/Dashboard';
 import Layout from './Pages/Layout/Layout';
 import EmployeeData from './Pages/Employees/EmployeeData';
 import TransactionChart from './Pages/transaction/Transaction';
+import TransactionFilters from './components/TransactionFilters';
+import PaymentHistory from './components/PaymentHistory';
+import TransactionTags from './components/TransactionTags';
 import ClientGrid from './Pages/Client/Client';
 import Projects from './Pages/Projects/index';
 import LandingPage from './Pages/Landing Page/LandingPage';
@@ -77,7 +80,7 @@ const router = createBrowserRouter([
       {
         path: "complete-profile",
         element: (
-          <Protected> {/* Assuming no role needed, or add if necessary */}
+          <Protected>
             <CompleteProfile />
           </Protected>
         ),
@@ -105,6 +108,30 @@ const router = createBrowserRouter([
       {
         path: "transactions",
         element: <TransactionChart />,
+      },
+      {
+        path: "transaction-filters",
+        element: (
+          <Protected>
+            <TransactionFilters />
+          </Protected>
+        ),
+      },
+      {
+        path: "payment-history",
+        element: (
+          <Protected>
+            <PaymentHistory />
+          </Protected>
+        ),
+      },
+      {
+        path: "transaction-tags",
+        element: (
+          <Protected>
+            <TransactionTags />
+          </Protected>
+        ),
       },
       {
         path: "clients",
@@ -145,7 +172,7 @@ const router = createBrowserRouter([
     ],
   },
   {
-    path: "/login", // These are fine if they are meant to be top-level, standalone routes
+    path: "/login",
     element: <Login />,
   },
   {

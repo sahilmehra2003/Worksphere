@@ -1,23 +1,37 @@
 import Department from '../models/departmentSchema.js'
 import Employee from '../models/employeeSchema.js';
+
 export const getAllDepartments = async (req, res) => {
   try {
     const departments = await Department.find()
-      .populate('departmentHead', 'name email') 
-      .populate('employees', 'name role') 
-      .populate('clientsAllocated', 'name company') 
-      .populate('currentProjects', 'title description'); 
+      .populate('departmentHead', 'name email')
+      .populate('employees', 'name role')
+      .populate('clientsAllocated', 'name company')
+      .populate('currentProjects', 'title description');
+    const departmentsWithMembers = await Promise.all(departments.map(async (dept) => {
+      const totalMembers = await Employee.countDocuments({ department: dept._id });
 
-    res.status(200).json(departments);
+      return {
+        ...dept.toObject(),
+        totalMembers,
+        currentProjects: dept.currentProjects || []
+      };
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: departmentsWithMembers
+    });
   } catch (error) {
     console.error("Error fetching departments:", error);
-    res.status(500).json({ message: 'Server Error' });
+    res.status(500).json({
+      success: false,
+      message: 'Server Error',
+      error: error.message
+    });
   }
 };
 
-
-
-// { departmentId, name, departmentHead, totalMembers, budgetAllocated, status, averageRating, totalRevenueGenerated }
 
 export const createDepartment = async (req, res) => {
   try {
@@ -119,8 +133,8 @@ export const getDepartmentById = async (req, res) => {
       .populate("departmentHead", "name email") // Populate department head details
       .populate("employees", "name email position") // Populate employees details
       .populate("clientsAllocated", "name contactInfo") // Populate clients details
-      .populate("currentProjecs", "title description"); // Populate project details
-       
+      .populate("currentProjects", "title description");
+
     if (!department) {
       return res.status(404).json({
         success: false,
@@ -164,12 +178,12 @@ export const setDepartmentInactive = async (req, res) => {
     }
 
     // Set  the department as inactive
-    const departmentInactive= await Department.findByIdAndUpdate(id, { status: 'Inactive' });
+    const departmentInactive = await Department.findByIdAndUpdate(id, { status: 'Inactive' });
     return res.status(200).json({
       success: true,
       message: "Department deleted successfully and references updated",
-      deleteDepartment:departmentInactive
-    },{new:true});
+      deleteDepartment: departmentInactive
+    }, { new: true });
   } catch (error) {
     console.error("Error deleting department:", error);
     return res.status(500).json({

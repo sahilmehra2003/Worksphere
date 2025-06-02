@@ -6,28 +6,28 @@ const employeeSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, "Employee name is required"],      
+      required: [true, "Employee name is required"],
       trim: true,
     },
     email: {
       type: String,
       required: [true, "Email is required"],
-      unique: true, 
-      lowercase: true, 
+      unique: true,
+      lowercase: true,
       match: [
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         "Please provide a valid email address",
       ],
       trim: true,
-      index: true, 
+      index: true,
     },
     password: {
       type: String,
       required: function () {
         return !this.googleId;
-      }, 
+      },
       minlength: [6, "Password must be at least 6 characters long"],
-      select: false, 
+      select: false,
     },
     googleId: {
       type: String,
@@ -36,12 +36,12 @@ const employeeSchema = new mongoose.Schema(
     },
     isProfileComplete: {
       type: Boolean,
-      default: true, 
+      default: true,
     },
     phoneNumber: {
       type: String,
       required: [true, "Phone number is required"],
-      match: [/^\d{10}$/, "Please provide a valid 10-digit phone number"], 
+      match: [/^\d{10}$/, "Please provide a valid 10-digit phone number"],
       trim: true,
     },
     city: {
@@ -78,7 +78,7 @@ const employeeSchema = new mongoose.Schema(
     },
     manager: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Employee", 
+      ref: "Employee",
       default: null,
     },
     client: [
@@ -89,14 +89,14 @@ const employeeSchema = new mongoose.Schema(
       },
     ],
     projectTeam: {
-      
+
       type: mongoose.Schema.Types.ObjectId,
       ref: "ProjectTeam",
       default: null,
     },
     currentProjects: [
       {
-  
+
         type: mongoose.Schema.Types.ObjectId,
         ref: "Project",
       },
@@ -106,7 +106,6 @@ const employeeSchema = new mongoose.Schema(
       enum: [
         "TeamHead",
         "Employee",
-        "DepartmentHead",
         "HR",
         "Manager",
         "Admin",
@@ -121,8 +120,18 @@ const employeeSchema = new mongoose.Schema(
         "resigned",
         "terminated",
         "pending_approval",
-      ], 
+      ],
       default: "working",
+      index: true,
+    },
+    workingStatus: {
+      type: String,
+      enum: [
+        "active",
+        "onLeave",
+        "workFromHome",
+      ],
+      default: 'active',
       index: true,
     },
     isVerified: { type: Boolean, default: false },

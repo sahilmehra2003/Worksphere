@@ -1,14 +1,14 @@
 # Worksphere - Internal HRMS & Employee Portal
 
-**Status:** Work in Progress
+**Status:** Active Development
 
 Worksphere is a full-stack internal HR management and employee self-service platform designed to streamline various company processes. This monorepo contains the backend API built with Node.js, Express, and MongoDB, and the frontend client application built with React.
 
 ## Table of Contents
 
 - [Key Features](#key-features)
-  - [Backend (Implemented/Designed)](#backend-implementeddesigned)
-  - [Frontend (Implemented/Designed)](#frontend-implementeddesigned)
+  - [Backend (Implemented)](#backend-implemented)
+  - [Frontend (Implemented)](#frontend-implemented)
 - [Upcoming Features / Roadmap](#upcoming-features--roadmap)
   - [Backend Next Steps](#backend-next-steps)
   - [Frontend Next Steps](#frontend-next-steps)
@@ -24,110 +24,328 @@ Worksphere is a full-stack internal HR management and employee self-service plat
 
 ## Key Features
 
-### Backend (Implemented/Designed)
+### Backend (Implemented)
 
 * **Authentication & Authorization:**
-    * Secure user registration (Signup)
-    * Login with JWT (stored in HttpOnly cookies)
-    * OTP-based Email Verification flow
-    * Forgot Password & Reset Password functionality (token-based email flow)
-    * Change Password for logged-in users
-    * Logout
-    * Authentication middleware (`authN`)
-    * Centralized Role-Based Access Control (RBAC) using Permissions defined in `config/permissions.js` and `authorization` middleware (`checkPermission`, `checkRole`).
+    * Multiple authentication methods:
+        * Email/Password with JWT
+        * Google OAuth 2.0 integration
+        * OTP-based Email Verification
+    * Secure token storage in HttpOnly cookies
+    * Automatic token refresh mechanism
+    * Role-based access control (RBAC)
+    * Permission-based authorization
+    * Session management
+    * Password reset flow with secure tokens
+    * Account lockout after failed attempts
+    * Remember me functionality
+    * Logout with token invalidation
+
 * **Employee Management:**
-    * Detailed `Employee` model (Mongoose schema) storing profile info, contact details, address, role, manager, department, projects, clients etc.
-    * Basic backend setup for Employee CRUD (implied by `auth` and other modules).
+    * Detailed `Employee` model storing profile info, contact details, address, role, manager, department, projects, clients etc.
+    * Full CRUD API for managing employees
+    * Role-based access control for employee data
+    * Manager-subordinate relationship management
+    * Profile picture upload and management
+    * Employee search and filtering
+    * Department assignment
+    * Project assignment
+    * Skills and certifications tracking
+
 * **Department Management:**
-    * `Department` model (Mongoose schema).
-    * Full CRUD API for managing departments (Admin/HR).
-    * Logic to update Employee records when assigned/removed from departments.
+    * `Department` model with full CRUD operations
+    * Employee-department assignment management
+    * Department hierarchy support
+    * Role-based access control for department operations
+    * Department head assignment
+    * Department budget tracking
+    * Department performance metrics
+
 * **Client Management:**
-    * `Client` model (Mongoose schema) with contact info, location, status, links to projects/teams/departments.
-    * Full CRUD API for managing clients.
-    * Geocoding integration (OpenCage API) to find Lat/Lng for client locations *(Note: Trigger needs refinement)*.
-* **Calendar / Holiday Management:**
-    * `CountryCalendar` model storing holidays and weekend definitions per country.
-    * API to fetch holidays from external source (Calendarific API) and create/update country calendars.
-    * API for manual holiday addition/deletion.
-    * API to fetch calendar data for frontend display.
-* **Leave Management:**
-    * `LeaveRequest` and `LeaveBalance` models.
-    * API for employees to apply for leave (validating against non-working days, overlaps, and balances).
-    * API for managers/HR to approve/reject leave requests (updating status and balances).
-    * API for employees to cancel pending/approved requests (refunding balance).
-    * API to fetch leave history and balances (role-based visibility).
-* **Performance Management (Backend Foundation):**
-    * `ReviewCycle` model (using Q1-Q4 naming, year, dates, status).
-    * API for HR/Admin to manage (CRUD) review cycles.
-    * API endpoint (`/activate`) to start a cycle and automatically create initial `PerformanceReview` documents for eligible employees.
-    * `PerformanceReview` model (simplified V3) storing self-assessment, manager input, optional head/client ratings & comments. Includes soft delete (`isDeleted`).
-    * API endpoints for retrieving reviews (own, team, all, by ID) with authorization.
-    * API endpoint for updating specific parts of a review based on user role/permissions.
-    * API endpoint for reopening completed reviews (Admin/HR/Manager).
+    * `Client` model with contact info, location, status
+    * Full CRUD API for managing clients
+    * Geocoding integration (OpenCage API) for location coordinates
+    * Client-project relationship management
+    * Client contact management
+    * Client billing information
+    * Client status tracking
+    * Client document management
+
+* **Project Management:**
+    * `Project` model with full CRUD operations
+    * Project-client relationship management
+    * Project team assignment capabilities
+    * Project status tracking
+    * Project timeline management
+    * Project budget tracking
+    * Project document management
+    * Project milestone tracking
+    * Project risk management
+
 * **Task Management:**
-    * `Task` model (with title, assignee, deadline, completion status, priority, reopened status, etc.).
-    * Full CRUD API for managing tasks.
-    * API for fetching tasks for the user dashboard (categorized by upcoming/overdue).
-    * API for reopening completed tasks.
-    * Authorization checks based on roles and permissions.
+    * `Task` model with title, assignee, deadline, status, priority
+    * Full CRUD API for tasks
+    * Task assignment and tracking
+    * Task status updates and notifications
+    * Task reopening functionality
+    * Task dependencies
+    * Task comments and attachments
+    * Task time tracking
+    * Task priority levels
+    * Task categories and tags
+
+* **Timesheet Management:**
+    * `Timesheet` and `TimesheetEntry` models
+    * Weekly timesheet creation and management
+    * Time entry tracking with project/client/task association
+    * Timesheet submission workflow (Draft → Submitted → Approved/Rejected)
+    * Manager approval/rejection with comments
+    * Timesheet status tracking
+    * Role-based access control for timesheet operations
+    * Timesheet export functionality
+    * Timesheet analytics and reporting
+    * Overtime tracking
+    * Billable hours tracking
+
+* **Leave Management:**
+    * `LeaveRequest` and `LeaveBalance` models
+    * Leave application and approval workflow
+    * Leave balance tracking
+    * Leave type management
+    * Manager approval/rejection with comments
+    * Leave cancellation functionality
+    * Leave calendar integration
+    * Leave policy management
+    * Leave balance reports
+    * Leave history tracking
+
+* **Calendar / Holiday Management:**
+    * `CountryCalendar` model for holiday tracking
+    * Holiday calendar integration (Calendarific API)
+    * Weekend and holiday definitions per country
+    * Manual holiday management
+    * Calendar data API for frontend
+    * Multiple calendar views
+    * Calendar sharing
+    * Event reminders
+    * Recurring events
+
 * **Email Integration:**
-    * Nodemailer setup using Mailtrap for testing/development.
-    * `sendMail` utility.
-    * HTML email templates (`OTP`, `Password Reset`, `Welcome`). CID embedding configured for logo (using Mailtrap Assets URL).
+    * Nodemailer setup with Mailtrap for development
+    * HTML email templates for various notifications
+    * Email verification and password reset flows
+    * Welcome emails for new employees
+    * Automated notifications
+    * Email scheduling
+    * Email tracking
+    * Template management
 
-### Frontend (Implemented/Designed)
+### Frontend (Implemented)
 
-* Company Holiday Calendar Admin page (`CompanyHolidayCalendar.jsx`).
-* User Leave Dashboard page (`UserLeavePage.jsx`) showing balances, history, and an interactive calendar for applying.
+* **Authentication Pages:**
+    * Login with email/password
+    * Google OAuth login
+    * Signup with email verification
+    * OTP Verification
+    * Forgot Password
+    * Reset Password
+    * Change Password
+    * Remember me functionality
+    * Session management
+    * Token refresh handling
+
+* **Dashboard:**
+    * Role-based dashboards (Employee, Manager, Admin, HR)
+    * Quick action cards
+    * Recent activities
+    * Pending approvals
+    * Upcoming deadlines
+    * Performance metrics
+    * Team overview
+    * Project status
+    * Leave balance
+    * Timesheet status
+
+* **Timesheet Management:**
+    * Weekly timesheet view
+    * Time entry form
+    * Project/client/task selection
+    * Timesheet submission
+    * Approval/rejection workflow
+    * Timesheet history
+    * Timesheet export
+    * Time tracking
+    * Overtime calculation
+    * Billable hours tracking
+
+* **Leave Management:**
+    * Leave application form
+    * Leave balance display
+    * Leave history
+    * Approval/rejection workflow
+    * Calendar integration
+    * Leave policy display
+    * Leave type selection
+    * Leave duration calculation
+    * Leave cancellation
+    * Leave balance reports
+
+* **Task Management:**
+    * Task list view
+    * Task creation and editing
+    * Task assignment
+    * Status updates
+    * Priority management
+    * Task filtering
+    * Task search
+    * Task comments
+    * Task attachments
+    * Task dependencies
+
+* **Employee Profile:**
+    * Profile view and edit
+    * Department information
+    * Project assignments
+    * Manager information
+    * Contact details
+    * Skills and certifications
+    * Profile picture
+    * Employment history
+    * Education details
+    * Emergency contacts
+
+* **Company Directory:**
+    * Employee search
+    * Department view
+    * Organization chart
+    * Contact information
+    * Employee filtering
+    * Department filtering
+    * Role-based access
+    * Contact details
+    * Team structure
+    * Reporting hierarchy
 
 ## Upcoming Features / Roadmap
 
 ### Backend Next Steps
 
-* **Bonus System:** Design & Implement Model, Controllers, Routes, Permissions.
-* **Performance Notifications/Jobs:** Integrate email sending for cycle activation/reminders; setup scheduler (`node-cron`?) for deadline checks.
-* **Dashboard Data Endpoints:** Create aggregated API endpoints for role-based dashboards.
-* **Announcement Module:** Backend API for managing and fetching announcements.
-* **Attendance/Time Tracking:** Backend Models/API.
-* **Onboarding/Offboarding:** Backend Models/API.
-* **Reporting:** Backend endpoints for specific reports.
-* **Refinements:** Fix Geocoding trigger, review deletion cleanup logic.
+* **Performance Management:**
+    * Review cycle management
+    * Performance review forms
+    * Rating system
+    * Feedback collection
+
+* **Bonus System:**
+    * Bonus calculation
+    * Approval workflow
+    * Payment tracking
+
+* **Attendance System:**
+    * Check-in/check-out tracking
+    * Location-based attendance
+    * Attendance reports
+
+* **Onboarding/Offboarding:**
+    * Employee onboarding workflow
+    * Document management
+    * Checklist system
+    * Exit interview process
 
 ### Frontend Next Steps
 
-* Role-based Dashboards (Employee, Manager, Admin, HR).
-* Performance Management UI (Cycle Admin, Review Forms, View History).
-* Task Management UI (View tasks, Mark complete).
-* Authentication Pages (Login, Signup, Verify OTP, Forgot/Reset Pass, Change Pass).
-* Employee Profile View/Edit Pages.
-* Company Directory / Org Chart UI.
-* Bonus System UI.
-* (And UIs for other backend modules as they are built).
+* **Performance Review UI:**
+    * Review form interface
+    * Rating system
+    * Feedback collection
+    * History view
+
+* **Bonus Management UI:**
+    * Bonus calculation interface
+    * Approval workflow
+    * Payment tracking
+
+* **Attendance System UI:**
+    * Check-in/check-out interface
+    * Attendance calendar
+    * Reports and analytics
+
+* **Onboarding/Offboarding UI:**
+    * Onboarding checklist
+    * Document upload
+    * Progress tracking
 
 ### Deferred Features
 
-* Goals Module
-* AI Chatbot / HR Assistant
-* Google OAuth Login
+* **AI Chatbot / HR Assistant:**
+    * Automated responses
+    * FAQ handling
+    * Basic HR queries
+
+* **Mobile Application:**
+    * Native mobile app
+    * Push notifications
+    * Offline support
+
+* **Advanced Analytics:**
+    * Custom reports
+    * Data visualization
+    * Predictive analytics
 
 ## Tech Stack
 
-* **Backend:** Node.js, Express.js, MongoDB, Mongoose
-* **Frontend:** React (Vite or Create React App?)
-* **Authentication:** JWT (JSON Web Tokens), bcrypt
-* **Email:** Nodemailer, Mailtrap (for testing)
-* **API Testing:** Postman (presumably)
-* **External APIs:** OpenCage Geocoding API, Calendarific API
+* **Backend:**
+    * Node.js
+    * Express.js
+    * MongoDB
+    * Mongoose
+    * JWT for authentication
+    * Google OAuth 2.0
+    * Nodemailer for emails
+    * OpenCage for geocoding
+    * Calendarific for holidays
+    * Multer for file uploads
+    * Socket.IO for real-time features
+
+* **Frontend:**
+    * React
+    * Redux for state management
+    * Material-UI for components
+    * React Router for navigation
+    * Axios for API calls
+    * React Query for data fetching
+    * Chart.js for visualizations
+    * Google OAuth client
+    * React Hook Form
+    * Yup for validation
+    * Socket.IO client
+
+* **Development Tools:**
+    * Git for version control
+    * ESLint for code linting
+    * Prettier for code formatting
+    * Jest for testing
+    * Postman for API testing
+    * Docker for containerization
+    * GitHub Actions for CI/CD
 
 ## Project Structure
 
+```
 worksphere/
 ├── client/              # React Frontend Application
 │   ├── public/
 │   ├── src/
-│   ├── .env.local       # Frontend Environment Variables (optional)
-│   ├── .gitignore       # Frontend Specific Ignores
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── redux/
+│   │   ├── services/
+│   │   ├── utils/
+│   │   ├── hooks/
+│   │   ├── context/
+│   │   ├── assets/
+│   │   └── App.js
+│   ├── .env.local
 │   └── package.json
 ├── server/              # Node.js Backend Application
 │   ├── config/
@@ -137,94 +355,100 @@ worksphere/
 │   ├── routes/
 │   ├── utils/
 │   ├── mailTemplates/
-│   ├── public/          # Static assets (like logo) served by backend
-│   ├── .env             # Backend Environment Variables
-│   ├── .env.sample      # Example Backend Env Variables
-│   ├── .gitignore       # Backend Specific Ignores
+│   ├── uploads/
+│   ├── .env
 │   └── package.json
-├── .gitignore           # Root Ignores (IDE files, OS files)
-└── README.md            # This file
-
+└── README.md
+```
 
 ## Getting Started
 
 ### Prerequisites
 
-* Node.js (specify version, e.g., v18.x or later)
+* Node.js (v18.x or later)
+* MongoDB (v6.x or later)
 * npm or yarn
-* MongoDB instance (local or cloud like MongoDB Atlas)
 * Git
+* Google Cloud Platform account (for OAuth)
 
 ### Installation
 
-1.  **Clone the repository:**
+1. **Clone the repository:**
     ```bash
-    git clone <YOUR_NEW_GITHUB_REPO_URL> worksphere
+    git clone <repository-url>
     cd worksphere
     ```
-2.  **Install Backend Dependencies:**
+
+2. **Install Backend Dependencies:**
     ```bash
     cd server
     npm install
-    # or yarn install
-    cd ..
     ```
-3.  **Install Frontend Dependencies:**
+
+3. **Install Frontend Dependencies:**
     ```bash
-    cd client
+    cd ../client
     npm install
-    # or yarn install
-    cd ..
     ```
 
 ## Environment Variables
 
-This project requires environment variables for configuration.
+### Backend (.env)
+```
+MONGODB_URI=your_mongodb_uri
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRE=1d
+MAILTRAP_HOST=your_mailtrap_host
+MAILTRAP_PORT=your_mailtrap_port
+MAILTRAP_USER=your_mailtrap_user
+MAILTRAP_PASS=your_mailtrap_pass
+OPENCAGE_API_KEY=your_opencage_key
+CALENDARIFIC_API_KEY=your_calendarific_key
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:4000/api/auth/google/callback
+FRONTEND_URL=http://localhost:3000
+```
 
-1.  **Backend:**
-    * Navigate to the `server` directory.
-    * Create a `.env` file by copying `.env.sample`: `cp .env.sample .env`
-    * Fill in the necessary values in the `.env` file:
-        * `MONGODB_URL`: Your MongoDB connection string.
-        * `PORT`: The port number for the backend server (e.g., 4000).
-        * `JWT_SECRET`: A strong, random secret key for signing JWTs.
-        * `JWT_EXPIRE`: JWT expiry time (e.g., `1d`, `2h`).
-        * `FRONTEND_URL`: The base URL of your running frontend application (e.g., `http://localhost:5173`) - used in email links.
-        * `BASE_URL`: The base URL where the backend server is accessible (e.g., `http://localhost:4000`) - used for logo URL in emails if self-hosted.
-        * `OPENCAGE_API_KEY`: Your API key from OpenCage Geocoding.
-        * `CALENDARIFIC_API_KEY`: Your API key from Calendarific.
-        * `MAILTRAP_HOST`: Mailtrap SMTP host.
-        * `MAILTRAP_PORT`: Mailtrap SMTP port (e.g., 2525).
-        * `MAILTRAP_USERNAME`: Mailtrap username.
-        * `MAILTRAP_PASSWORD`: Mailtrap password.
-        * `MAILTRAP_SENDEREMAIL`: The 'From' email address to use via Mailtrap.
-        * `MAILTRAP_LOGO_URL`: The public URL for the logo hosted on Mailtrap Assets (if using that method).
-
-2.  **Frontend:**
-    * Navigate to the `client` directory.
-    * Create a `.env` or `.env.local` file if needed (depending on your React setup - Vite uses `.env`, CRA uses `.env.local`).
-    * Add any frontend-specific environment variables, typically prefixed (e.g., `VITE_API_BASE_URL=http://localhost:4000/api` or `REACT_APP_API_BASE_URL=http://localhost:4000/api`). Consult your frontend framework's documentation.
-
-**IMPORTANT:** Never commit your actual `.env` files containing secrets to Git. Ensure they are listed in the relevant `.gitignore` files.
+### Frontend (.env.local)
+```
+REACT_APP_API_URL=http://localhost:4000/api
+REACT_APP_WS_URL=ws://localhost:4000
+REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
+```
 
 ## Running the Application
 
-1.  **Run the Backend Server:**
+1. **Start Backend Server:**
     ```bash
     cd server
-    npm run dev # Or your script for starting in development mode (e.g., using nodemon)
-    # Or npm start for production builds
+    npm run dev
     ```
-    The backend should typically run on the port specified in `server/.env` (e.g., 4000).
 
-2.  **Run the Frontend Application:**
-    * Open a *new* terminal window.
+2. **Start Frontend Development Server:**
     ```bash
     cd client
-    npm run dev # Or your script for starting the React dev server
-    # Or npm start
+    npm start
     ```
-    The frontend should typically run on a different port (e.g., 5173 or as specified by Vite/CRA). Access it via your browser at `http://localhost:5173` (or the relevant port).
+
+The application will be available at:
+* Frontend: http://localhost:3000
+* Backend API: http://localhost:4000
+
+## API Endpoints
+
+Detailed API documentation is available in the `/server/docs` directory. Key endpoints include:
+
+* `/api/auth/*` - Authentication endpoints (including Google OAuth)
+* `/api/employees/*` - Employee management
+* `/api/departments/*` - Department management
+* `/api/clients/*` - Client management
+* `/api/projects/*` - Project management
+* `/api/tasks/*` - Task management
+* `/api/timesheets/*` - Timesheet management
+* `/api/leaves/*` - Leave management
+* `/api/calendar/*` - Calendar and holiday management
+* `/api/upload/*` - File upload endpoints
 
 
 

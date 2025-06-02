@@ -65,11 +65,30 @@ app.use(passport.session())
 // CORS configuration
 app.use(cors({
     origin: [
-        process.env.FRONTEND_URL || 'http://localhost:5174',
+        process.env.FRONTEND_URL || 'http://localhost:5173',
         'http://127.0.0.1:5173'
     ],
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'params',
+        'X-Requested-With',
+        'Accept',
+        'Origin'
+    ]
 }));
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'Internal Server Error',
+        error: process.env.NODE_ENV === 'development' ? err : {}
+    });
+});
 
 const PORT = process.env.PORT || 3000
 

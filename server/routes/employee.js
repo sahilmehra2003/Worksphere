@@ -1,16 +1,16 @@
 import express from "express"
 const router = express.Router();
-import { 
-    getEmployee, 
-    getAllEmployees, 
-    createEmployee, 
-    updateEmployee, 
-    updatePassword, 
+import {
+    getEmployee,
+    getAllEmployees,
+    createEmployee,
+    updateEmployee,
+    updatePassword,
     setEmployeeInactive,
     completeExistingUserProfile
 } from "../controllers/employeeController.js";
 import { authN, isAdmin, isAdminOrEmployee } from "../middlewares/auth.js";
-import {checkPermission} from '../middlewares/permission.middleware.js'
+import { checkPermission } from '../middlewares/permission.middleware.js'
 import { Permissions } from "../config/permission.config.js";
 // Public route (example)
 router.get('/employees/public', getAllEmployees);
@@ -39,6 +39,6 @@ router.patch('/change-password', authN, updatePassword);
 // Only admin and hr can create/update/delete employees
 router.post('/employees/create', authN, isAdmin, createEmployee);
 router.put('/employees/:id', authN, isAdmin, updateEmployee);
-router.patch('/employees/setInactive/:id', authN, checkPermission(Permissions.MANAGE_EMPLOYEES),setEmployeeInactive);
+router.patch('/employees/setInactive/:id', authN, checkPermission(Permissions.MANAGE_EMPLOYEES), setEmployeeInactive);
 
 export default router;

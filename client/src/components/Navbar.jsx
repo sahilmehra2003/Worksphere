@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable react/prop-types */
 import React, { useState, useEffect } from 'react';
 import {
   LightModeOutlined,
@@ -149,13 +151,13 @@ const Navbar = ({ isSidebarOpen, setIsSidebarOpen }) => {
               <Box textAlign="left">
                 <Typography
                   fontWeight="bold"
-                  fontSize="0.6rem"
+                  variant='body1'
                   sx={{ color: theme.palette.neutral.main }}
                 >
                   {user.name}
                 </Typography>
                 <Typography
-                  fontSize="0.7rem"
+                  variant='body2'
                   sx={{ color: theme.palette.neutral.main }}
                 >
                   {user.role}

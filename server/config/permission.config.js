@@ -41,9 +41,14 @@ export const Permissions = Object.freeze({
     APPROVE_TIMESHEETS: 'approve_timesheets',
     VIEW_ALL_TIMESHEETS: 'view_all_timesheets',
     VIEW_TEAM_TIMESHEETS: 'view_team_timesheets',
-
-
-    // Add other permissions (MANAGE_PROJECTS, MANAGE_CLIENTS etc.)
+    // Transaction Permissions
+    MANAGE_TRANSACTIONS: 'manage_transactions',
+    VIEW_TRANSACTIONS: 'view_transactions',
+    CREATE_TRANSACTION: 'create_transaction',
+    EDIT_TRANSACTION: 'edit_transaction',
+    DELETE_TRANSACTION: 'delete_transaction',
+    APPROVE_TRANSACTION: 'approve_transaction',
+    VIEW_TRANSACTION_REPORTS: 'view_transaction_reports',
     // clients
     MANAGE_CLIENTS: 'MANAGE_CLIENTS'
 });
@@ -52,7 +57,6 @@ export const rolePermissions = {
     Admin: Object.values(Permissions),
 
     HR: [
-
         Permissions.MANAGE_EMPLOYEES,
         Permissions.VIEW_EMPLOYEES,
         Permissions.APPROVE_LEAVES,
@@ -81,6 +85,8 @@ export const rolePermissions = {
         Permissions.APPROVE_TIMESHEETS,
         Permissions.VIEW_ALL_TIMESHEETS,
         Permissions.VIEW_TEAM_TIMESHEETS,
+        Permissions.VIEW_TRANSACTIONS,
+        Permissions.VIEW_TRANSACTION_REPORTS
     ],
 
     Manager: [
@@ -107,7 +113,9 @@ export const rolePermissions = {
         Permissions.VIEW_OTHER_TASKS,
         Permissions.APPROVE_TIMESHEETS,
         Permissions.VIEW_TEAM_TIMESHEETS,
-        Permissions.MANAGE_CLIENTS
+        Permissions.MANAGE_CLIENTS,
+        Permissions.VIEW_TRANSACTIONS,
+        Permissions.VIEW_TRANSACTION_REPORTS
     ],
 
     DepartmentHead: [
@@ -134,6 +142,8 @@ export const rolePermissions = {
         Permissions.VIEW_OTHER_TASKS,
         Permissions.APPROVE_TIMESHEETS,
         Permissions.VIEW_TEAM_TIMESHEETS,
+        Permissions.VIEW_TRANSACTIONS,
+        Permissions.VIEW_TRANSACTION_REPORTS
     ],
 
     TeamHead: [
@@ -157,6 +167,7 @@ export const rolePermissions = {
         Permissions.VIEW_OTHER_TASKS,
         Permissions.APPROVE_TIMESHEETS,
         Permissions.VIEW_TEAM_TIMESHEETS,
+        Permissions.VIEW_TRANSACTIONS
     ],
 
     Employee: [
@@ -168,6 +179,7 @@ export const rolePermissions = {
         Permissions.VIEW_OWN_PERFORMANCE,
         Permissions.VIEW_OWN_TASKS,
         Permissions.MARK_OWN_TASK_COMPLETE,
+        Permissions.VIEW_TRANSACTIONS
     ],
 };
 

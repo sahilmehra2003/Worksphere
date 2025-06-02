@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { apiConnector } from '../../services/apiConnector'; 
-import { TASK_ENDPOINTS } from '../../services/apiEndpoints'; 
+import { apiConnector } from '../../services/apiConnector';
+import { TASK_ENDPOINTS } from '../../services/apiEndpoints';
 
 const initialState = {
     myTasks: {
@@ -48,11 +48,30 @@ export const fetchAllTasks = createAsyncThunk(
     'task/fetchAll',
     async ({ page = 1, limit = 10, filters = {} } = {}, { rejectWithValue }) => {
         try {
-            const params = { page, limit, ...filters };
-            const response = await apiConnector('GET', TASK_ENDPOINTS.GET_ALL_TASKS_API, null, null, params);
-            // Backend's getAllTasks returns { success, data: tasks, pagination, count }
+            const params = {
+                page,
+                limit,
+                // Handle search query
+                search: filters.search || undefined,
+                // Handle status filter
+                isCompleted: filters.status === 'completed' ? true :
+                    filters.status === 'open' ? false :
+                        undefined,
+                // Handle priority filter
+                priority: filters.priority || undefined,
+                // Handle sorting
+                sortBy: filters.sortBy || undefined,
+                sortOrder: filters.sortOrder || undefined,
+            };
+
+            // Remove undefined values
+            const cleanParams = Object.fromEntries(
+                Object.entries(params).filter(([, value]) => value !== undefined)
+            );
+
+            const response = await apiConnector('GET', TASK_ENDPOINTS.GET_ALL_TASKS_API, null, null, cleanParams);
             if (response.data && response.data.success) {
-                return response.data; // Contains data (tasks array) and pagination
+                return response.data;
             }
             return rejectWithValue(response.data?.message || 'Failed to fetch all tasks.');
         } catch (error) {
@@ -126,14 +145,16 @@ export const updateTask = createAsyncThunk(
 // 6. Reopen Task
 export const reopenTask = createAsyncThunk(
     'task/reopen',
-    async ({ taskId, taskData }, { dispatch, rejectWithValue }) => { // taskData might include new deadline etc.
+    async ({ taskId, newDeadlineDate, description }, { dispatch, rejectWithValue }) => {
         try {
-            const response = await apiConnector('PATCH', TASK_ENDPOINTS.REOPEN_TASK_API(taskId), taskData);
-            // Backend's reopenTask returns { success, message, data: reopenedTask }
+            const response = await apiConnector('PATCH', TASK_ENDPOINTS.REOPEN_TASK_API(taskId), {
+                newDeadlineDate,
+                description
+            });
             if (!response.data.success) {
                 return rejectWithValue(response.data.message || 'Failed to reopen task.');
             }
-            dispatch(fetchMyTasks());
+            // Refresh task lists after reopening
             dispatch(fetchAllTasks());
             return response.data.data;
         } catch (error) {

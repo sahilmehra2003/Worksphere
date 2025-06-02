@@ -11,7 +11,7 @@ import {
     CircularProgress,
 } from '@mui/material';
 import { toast } from 'react-hot-toast';
-import { fetchMyTimesheets, fetchSubmittedTimesheets, fetchAllTimesheets } from '../../redux/Slices/timeSheetSlice';
+import { fetchMyTimesheets, fetchSubmittedTimesheets, fetchAllTimesheets, deleteTimesheet } from '../../redux/Slices/timeSheetSlice';
 import TimesheetList from './components/TimesheetList';
 import TimesheetEntryForm from './components/TimesheetEntryForm';
 
@@ -50,6 +50,16 @@ const Timesheet = () => {
             }
         } catch (error) {
             toast.error(error.message || 'Failed to load timesheets');
+        }
+    };
+
+    const handleDelete = async (timesheetId) => {
+        try {
+            await dispatch(deleteTimesheet(timesheetId)).unwrap();
+            toast.success('Timesheet deleted successfully');
+            loadTimesheets();
+        } catch (error) {
+            toast.error(error.message || 'Failed to delete timesheet');
         }
     };
 
@@ -115,6 +125,7 @@ const Timesheet = () => {
                     onPageChange={(page) => {
                         // Handle pagination
                     }}
+                    onDelete={handleDelete}
                 />
             )}
 

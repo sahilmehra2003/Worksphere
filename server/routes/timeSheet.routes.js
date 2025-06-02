@@ -11,42 +11,47 @@ import {
     rejectTimesheet,
     approveTimesheet,
     getMyTimesheets,
-    getTimesheetById
-    
+    getTimesheetById,
+    deleteTimesheet
+
 } from '../controllers/timesheet.controller.js'
-import {authN} from '../middlewares/auth.js'
-import {checkPermission} from '../middlewares/permission.middleware.js'
+import { authN } from '../middlewares/auth.js'
+import { checkPermission } from '../middlewares/permission.middleware.js'
 import { Permissions } from '../config/permission.config.js'
 
 const router = express.Router();
 
-router.post('/addEntries',authN,addTimesheetEntry);
-router.patch('/updateEntries/:entryId',authN,updateTimesheetEntry);
-router.delete('/deleteEntries/:entryId',authN,deleteTimesheetEntry);
-router.get('/getALLTimesheets',authN,checkPermission(Permissions.VIEW_ALL_TIMESHEETS),getAllTimesheets);
-router.get('/myTimeSheets',authN,getMyTimesheets);
+router.post('/addEntries', authN, addTimesheetEntry);
+router.patch('/updateEntries/:entryId', authN, updateTimesheetEntry);
+router.delete('/deleteEntries/:entryId', authN, deleteTimesheetEntry);
+router.get('/getALLTimesheets', authN, checkPermission(Permissions.VIEW_ALL_TIMESHEETS), getAllTimesheets);
+router.get('/myTimeSheets', authN, getMyTimesheets);
 router.get('/submitted',
     authN,
-    checkPermission(Permissions.APPROVE_TIMESHEETS), 
+    checkPermission(Permissions.APPROVE_TIMESHEETS),
     getSubmittedTimesheets
 );
 router.get('/getTimesheetById/:timesheetId',
-    authN, 
+    authN,
     getTimesheetById
 );
-router.patch('/draftTimeSheet/:timesheetId/submit', 
-    authN, 
+router.patch('/draftTimeSheet/:timesheetId/submit',
+    authN,
     submitTimesheet
 );
-router.patch('/approveTimesheet/:timesheetId/approve', 
+router.patch('/approveTimesheet/:timesheetId/approve',
     authN,
-    checkPermission(Permissions.APPROVE_TIMESHEETS), 
-    approveTimesheet 
+    checkPermission(Permissions.APPROVE_TIMESHEETS),
+    approveTimesheet
 );
-router.patch('/checkTimesheet/:timesheetId/reject', 
+router.patch('/checkTimesheet/:timesheetId/reject',
     authN,
-    checkPermission(Permissions.APPROVE_TIMESHEETS), 
+    checkPermission(Permissions.APPROVE_TIMESHEETS),
     rejectTimesheet
+);
+router.delete('/:timesheetId',
+    authN,
+    deleteTimesheet
 );
 
 export default router;

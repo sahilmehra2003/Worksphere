@@ -13,7 +13,10 @@ import {
     Assignment,
     Groups,
     CalendarMonthOutlined,
-    Task
+    Task,
+    FilterList,
+    History,
+    LocalOffer
 } from "@mui/icons-material";
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import ApartmentIcon from '@mui/icons-material/Apartment';
@@ -26,20 +29,24 @@ const logoStyle = {
 };
 const navItems = [
     { id: 'client-section', text: "Client Facing", icon: null, isSectionHeader: true },
-    { id: 'clients', text: "Clients", icon: <Groups2Outlined /> },
-    { id: 'projects', text: "Projects", icon: <Assignment /> },
-    { id: 'transactions', text: "Transactions", icon: <ReceiptLongOutlined /> },
-    { id: 'geography', text: "Geography", icon: <PublicOutlined /> },
+    { id: 'clients', text: "Clients", icon: <Groups2Outlined />, path: 'clients' },
+    { id: 'projects', text: "Projects", icon: <Assignment />, path: 'projects' },
+    { id: 'geography', text: "Geography", icon: <PublicOutlined />, path: 'geography' },
+    { id: 'transaction-section', text: "Transaction Data", icon: null, isSectionHeader: true },
+    { id: 'transactions', text: "Transactions", icon: <ReceiptLongOutlined />, path: 'transactions' },
+    { id: 'transaction-filters', text: "Transaction Filters", icon: <FilterList />, path: 'transaction-filters' },
+    { id: 'payment-history', text: "Payment History", icon: <History />, path: 'payment-history' },
+    { id: 'transaction-tags', text: "Transaction Tags", icon: <LocalOffer />, path: 'transaction-tags' },
     { id: 'employee-section', text: "Employee Data", icon: null, isSectionHeader: true },
-    { id: 'employees', text: "Employees", icon: <PersonIcon /> },
-    { id: 'task', text: "Tasks", icon: <Task /> },
+    { id: 'employees', text: "Employees", icon: <PersonIcon />, path: 'employees' },
+    { id: 'task', text: "Tasks", icon: <Task />, path: 'tasks' },
     { id: 'department-section', text: "Department Data", icon: null, isSectionHeader: true },
-    { id: 'departments', text: "Departments", icon: <ApartmentIcon /> },
-    { id: 'project-teams', text: "Teams", icon: <Groups /> },
+    { id: 'departments', text: "Departments", icon: <ApartmentIcon />, path: 'departments' },
+    { id: 'project-teams', text: "Teams", icon: <Groups />, path: 'teams' },
     { id: 'management-section', text: "Management", icon: null, isSectionHeader: true },
-    { id: 'company calendar', text: "Calendar", icon: <CalendarMonthOutlined /> },
-    { id: 'leave', text: 'Leave System', icon: <EventBusyIcon /> },
-    { id: 'timesheet', text: 'Timesheet', icon: <Assignment /> },
+    { id: 'company calendar', text: "Calendar", icon: <CalendarMonthOutlined />, path: 'calendar' },
+    { id: 'leave', text: 'Leave System', icon: <EventBusyIcon />, path: 'Leave System' },
+    { id: 'timesheet', text: 'Timesheet', icon: <Assignment />, path: 'timesheet' },
 ].filter(Boolean);
 
 const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) => {
@@ -72,32 +79,32 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                         },
                     }}
                 >
-                    {/* Logo and Close Button */}
+
                     <Box
                         sx={{
                             position: "fixed",
                             top: 0,
                             zIndex: 1, // Sits below the logo box if logo needs to float above blur
-                            height: '50px', 
-                            backgroundColor: theme.palette.background.default, 
+                            height: '50px',
+                            backgroundColor: theme.palette.background.default,
                             backdropFilter: "blur(8px)",
                             WebkitBackdropFilter: "blur(8px)",
-                            padding:"10px",
-                            width: '242px', 
+                            padding: "10px",
+                            width: '242px',
                         }}
                     />
-                    <Box 
-                    sx={{
-                        position: "sticky",  
-                        top: 0,
-                        zIndex: 2,
-                        padding: "10px",
-                        width: '90px',
-                        height:'40px',
-                        scale: "1.1",
-                      //  marginBlock: "10px",
-                        ...(theme.palette.mode === "light" && logoStyle),
-                    }}    
+                    <Box
+                        sx={{
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 2,
+                            padding: "10px",
+                            width: '90px',
+                            height: '40px',
+                            scale: "1.1",
+                            //  marginBlock: "10px",
+                            ...(theme.palette.mode === "light" && logoStyle),
+                        }}
                     >
                         <FlexBetween>
                             <Box display="flex" alignItems="center" gap="0.5rem">
@@ -110,12 +117,12 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                             )}
                         </FlexBetween>
                     </Box>
-                   
+
 
                     {/* Navigation Items */}
                     <Box width="100%">
                         <List>
-                            {navItems.map(({ id, text, icon, isSectionHeader, isSticky }) => {
+                            {navItems.map(({ id, text, icon, isSectionHeader, isSticky, path }) => {
                                 if (isSectionHeader) {
                                     return (
                                         <Typography
@@ -145,7 +152,7 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                                     >
                                         <ListItemButton
                                             onClick={() => {
-                                                navigate(`/app/${text.toLowerCase()}`);
+                                                navigate(`/app/${path}`);
                                                 setActive(id);
                                             }}
                                             sx={{
@@ -168,7 +175,7 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                                 );
                             })}
                         </List>
-                    
+
                     </Box>
                 </Drawer>
             )}

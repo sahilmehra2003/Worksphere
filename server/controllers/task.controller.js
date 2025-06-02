@@ -1,5 +1,5 @@
-import Task from '../models/Task.model.js' 
-import Employee from '../models/employeeSchema.js'; 
+import Task from '../models/Task.model.js'
+import Employee from '../models/employeeSchema.js';
 import mongoose from 'mongoose';
 
 export const createTask = async (req, res) => {
@@ -7,10 +7,10 @@ export const createTask = async (req, res) => {
         const {
             title,
             description,
-            assignedTo, 
-            deadlineDate, 
-            priority, 
-            relatedReview 
+            assignedTo,
+            deadlineDate,
+            priority,
+            relatedReview
 
         } = req.body;
 
@@ -24,19 +24,19 @@ export const createTask = async (req, res) => {
         }
 
         if (!mongoose.Types.ObjectId.isValid(assignedTo)) {
-             return res.status(400).json({ success: false, message: 'Invalid employee ID format for assignedTo.' });
+            return res.status(400).json({ success: false, message: 'Invalid employee ID format for assignedTo.' });
         }
 
         const assignedEmployee = await Employee.findById(assignedTo);
         if (!assignedEmployee) {
-             return res.status(404).json({ success: false, message: `Employee with ID ${assignedTo} not found.` });
+            return res.status(404).json({ success: false, message: `Employee with ID ${assignedTo} not found.` });
         }
 
         let formattedDeadline = null;
         if (deadlineDate) {
             formattedDeadline = new Date(deadlineDate);
             if (isNaN(formattedDeadline.getTime())) {
-                 return res.status(400).json({ success: false, message: 'Invalid deadline date format.' });
+                return res.status(400).json({ success: false, message: 'Invalid deadline date format.' });
             }
 
             if (formattedDeadline <= new Date()) {
@@ -52,16 +52,16 @@ export const createTask = async (req, res) => {
             description,
             assignedTo,
             deadlineDate: formattedDeadline,
-            priority, 
+            priority,
             relatedReview,
             createdBy,
-            isCompleted: false, 
-            completedDate: null 
+            isCompleted: false,
+            completedDate: null
         };
 
         const newTask = await Task.create(taskData);
 
-   
+
         res.status(201).json({
             success: true,
             message: 'Task created successfully.',
@@ -71,7 +71,7 @@ export const createTask = async (req, res) => {
     } catch (error) {
         console.error("Error creating task:", error);
         if (error.name === 'ValidationError') {
-             return res.status(400).json({ success: false, message: 'Validation Error', error: error.message });
+            return res.status(400).json({ success: false, message: 'Validation Error', error: error.message });
         }
         res.status(500).json({
             success: false,
@@ -91,39 +91,39 @@ export const getTasksForUser = async (req, res) => {
             assignedTo: employeeId,
             isCompleted: false
         })
-        .populate('createdBy', 'name') 
-        .populate('relatedReview', 'reviewCycle') 
-        .sort({ deadlineDate: 1, priority: -1, createdAt: 1 }) 
-        .lean();
+            .populate('createdBy', 'name')
+            .populate('relatedReview', 'reviewCycle')
+            .sort({ deadlineDate: 1, priority: -1, createdAt: 1 })
+            .lean();
 
         const upcomingTasks = [];
         const overdueTasks = [];
 
         incompleteTasks.forEach(task => {
             if (task.deadlineDate && new Date(task.deadlineDate) < now) {
-                overdueTasks.push(task); 
+                overdueTasks.push(task);
             } else {
-                upcomingTasks.push(task); 
+                upcomingTasks.push(task);
             }
         });
 
-        const recentLimit = 5; 
+        const recentLimit = 5;
         const completedTasks = await Task.find({
             assignedTo: employeeId,
             isCompleted: true
         })
-        .populate('createdBy', 'name')
-        .sort({ completedDate: -1 }) 
-        .limit(recentLimit)
-        .lean();
+            .populate('createdBy', 'name')
+            .sort({ completedDate: -1 })
+            .limit(recentLimit)
+            .lean();
 
 
         res.status(200).json({
             success: true,
             data: {
-                upcoming: upcomingTasks, 
-                overdue: overdueTasks,   
-                recentlyCompleted: completedTasks 
+                upcoming: upcomingTasks,
+                overdue: overdueTasks,
+                recentlyCompleted: completedTasks
             }
         });
 
@@ -139,23 +139,42 @@ export const getTasksForUser = async (req, res) => {
 
 export const getAllTasks = async (req, res) => {
     try {
-        const query = {}; 
+        const query = {};
 
+        // Handle search query
+        if (req.query.search) {
+            query.$or = [
+                { title: { $regex: req.query.search, $options: 'i' } },
+                { description: { $regex: req.query.search, $options: 'i' } }
+            ];
+        }
+
+        // Handle assignedTo filter
         if (req.query.assignedTo && mongoose.Types.ObjectId.isValid(req.query.assignedTo)) {
             query.assignedTo = req.query.assignedTo;
         }
-        if (req.query.isCompleted) {
-            query.isCompleted = req.query.isCompleted === 'true'; 
+
+        // Handle status filter
+        if (req.query.isCompleted !== undefined) {
+            query.isCompleted = req.query.isCompleted === 'true';
         }
+
+        // Handle priority filter
         if (req.query.priority) {
-            query.priority = req.query.priority; 
+            query.priority = req.query.priority;
         }
 
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const skip = (page - 1) * limit;
 
-        const sort = { createdAt: -1 };
+        // Handle sorting
+        let sort = { createdAt: -1 }; // default sort
+        if (req.query.sortBy) {
+            sort = {
+                [req.query.sortBy]: req.query.sortOrder === 'desc' ? -1 : 1
+            };
+        }
 
         const tasks = await Task.find(query)
             .populate('assignedTo', 'name email')
@@ -194,8 +213,10 @@ export const getTaskById = async (req, res) => {
         }
 
         const task = await Task.findById(taskId)
-            .populate('assignedTo', 'name email manager') 
-            .populate('createdBy', 'name email'); 
+            .populate('assignedTo', 'name email manager')
+            .populate('createdBy', 'name email')
+            .populate('reopenHistory.reopenedBy', 'name email')
+            .populate('comments.author', 'name email');
 
         if (!task) {
             return res.status(404).json({ success: false, message: 'Task not found.' });
@@ -203,20 +224,16 @@ export const getTaskById = async (req, res) => {
 
         const isAdminOrHR = ['Admin', 'HR'].includes(requestingUser.role);
         const isAssignee = requestingUser._id.equals(task.assignedTo?._id);
-
         const isAssigneeManager = task.assignedTo?.manager && requestingUser._id.equals(task.assignedTo.manager);
 
         if (isAdminOrHR || isAssignee || isAssigneeManager) {
-
             res.status(200).json({
                 success: true,
                 data: task
             });
         } else {
-
             return res.status(403).json({ success: false, message: 'Access denied: You are not authorized to view this task.' });
         }
-
 
     } catch (error) {
         console.error("Error fetching task by ID:", error);
@@ -234,17 +251,17 @@ export const updateTask = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid Task ID format.' });
         }
 
-       
+
         const task = await Task.findById(taskId)
-            .populate('assignedTo', 'manager') 
-            .populate('createdBy'); 
+            .populate('assignedTo', 'manager')
+            .populate('createdBy');
 
         if (!task) {
             return res.status(404).json({ success: false, message: 'Task not found.' });
         }
 
         if (task.isCompleted && updatePayload.hasOwnProperty('isCompleted') && updatePayload.isCompleted === false) {
-             return res.status(400).json({ success: false, message: 'Cannot mark a completed task as incomplete here. Please use the specific "reopen" action if available.' });
+            return res.status(400).json({ success: false, message: 'Cannot mark a completed task as incomplete here. Please use the specific "reopen" action if available.' });
         }
 
         const allowedUpdates = {};
@@ -269,7 +286,7 @@ export const updateTask = async (req, res) => {
                 } else if (isAssigneeManager && editableFieldsByManager.includes(field)) {
                     canUpdateField = true;
                 } else if (isAssignee && editableFieldsByAssignee.includes(field)) {
-                     if (field === 'isCompleted' && updatePayload[field] !== true) {
+                    if (field === 'isCompleted' && updatePayload[field] !== true) {
                         console.warn(`User ${requestingUser._id} (Assignee) tried to set isCompleted to false on task ${taskId}. Denied.`);
                         continue;
                     }
@@ -280,16 +297,16 @@ export const updateTask = async (req, res) => {
 
                 if (canUpdateField) {
                     if (field === 'deadlineDate' && updatePayload[field]) {
-                         const newDeadline = new Date(updatePayload[field]);
-                         if (isNaN(newDeadline.getTime())) {
-                             return res.status(400).json({ success: false, message: 'Invalid deadline date format provided.' });
-                         }
-                         if (newDeadline <= new Date()) {
-                             return res.status(400).json({ success: false, message: 'Task deadline must be set to a future date and time.'});
-                         }
-                         allowedUpdates[field] = newDeadline; 
+                        const newDeadline = new Date(updatePayload[field]);
+                        if (isNaN(newDeadline.getTime())) {
+                            return res.status(400).json({ success: false, message: 'Invalid deadline date format provided.' });
+                        }
+                        if (newDeadline <= new Date()) {
+                            return res.status(400).json({ success: false, message: 'Task deadline must be set to a future date and time.' });
+                        }
+                        allowedUpdates[field] = newDeadline;
                     } else {
-                         allowedUpdates[field] = updatePayload[field];
+                        allowedUpdates[field] = updatePayload[field];
                     }
                 }
             }
@@ -301,10 +318,10 @@ export const updateTask = async (req, res) => {
         const updatedTask = await Task.findByIdAndUpdate(
             taskId,
             { $set: allowedUpdates },
-            { new: true, runValidators: true } 
+            { new: true, runValidators: true }
         )
-        .populate('assignedTo', 'name email')
-        .populate('createdBy', 'name email');
+            .populate('assignedTo', 'name email')
+            .populate('createdBy', 'name email');
 
 
         res.status(200).json({
@@ -315,8 +332,8 @@ export const updateTask = async (req, res) => {
 
     } catch (error) {
         console.error("Error updating task:", error);
-         if (error.name === 'ValidationError') {
-             return res.status(400).json({ success: false, message: 'Validation Error', error: error.message });
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ success: false, message: 'Validation Error', error: error.message });
         }
         res.status(500).json({ success: false, message: 'Server error updating task.', error: error.message });
     }
@@ -325,8 +342,8 @@ export const updateTask = async (req, res) => {
 export const reopenTask = async (req, res) => {
     try {
         const { taskId } = req.params;
-        const requestingUser = req.user; 
-        const { newDeadlineDate, description } = req.body; 
+        const requestingUser = req.user;
+        const { newDeadlineDate, description } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(taskId)) {
             return res.status(400).json({ success: false, message: 'Invalid Task ID format.' });
@@ -339,20 +356,20 @@ export const reopenTask = async (req, res) => {
         if (isNaN(validatedDeadline.getTime())) {
             return res.status(400).json({ success: false, message: 'Invalid format for new deadline date.' });
         }
- 
+
         if (validatedDeadline <= new Date()) {
             return res.status(400).json({
                 success: false,
                 message: 'New deadline must be set to a future date and time.'
             });
         }
-  
+
         const task = await Task.findById(taskId).populate('assignedTo', 'manager');
 
         if (!task) {
             return res.status(404).json({ success: false, message: 'Task not found.' });
         }
- 
+
         if (!task.isCompleted) {
             return res.status(400).json({
                 success: false,
@@ -369,10 +386,10 @@ export const reopenTask = async (req, res) => {
         }
 
         task.isCompleted = false;
-        task.completedDate = null;       
-        task.isReopened = true;      
+        task.completedDate = null;
+        task.isReopened = true;
         task.deadlineDate = validatedDeadline;
-        if (description !== undefined) {   
+        if (description !== undefined) {
             task.description = description;
         }
 
@@ -388,7 +405,7 @@ export const reopenTask = async (req, res) => {
     } catch (error) {
         console.error("Error reopening task:", error);
         if (error.name === 'ValidationError') {
-             return res.status(400).json({ success: false, message: 'Validation Error reopening task.', error: error.message });
+            return res.status(400).json({ success: false, message: 'Validation Error reopening task.', error: error.message });
         }
         res.status(500).json({
             success: false,
@@ -409,8 +426,8 @@ export const deleteTask = async (req, res) => {
 
         // Find the task first to check permissions before deleting
         const task = await Task.findById(taskId)
-             .populate('assignedTo', 'manager') 
-             .populate('createdBy'); 
+            .populate('assignedTo', 'manager')
+            .populate('createdBy');
         if (!task) {
 
             return res.status(404).json({ success: false, message: 'Task not found.' });
@@ -420,13 +437,13 @@ export const deleteTask = async (req, res) => {
         const isAssigneeManager = task.assignedTo?.manager && requestingUser._id.equals(task.assignedTo.manager);
         const isCreator = task.createdBy?._id && requestingUser._id.equals(task.createdBy._id);
 
-        if (isAdmin || isAssigneeManager || isCreator ) {
+        if (isAdmin || isAssigneeManager || isCreator) {
             await Task.findByIdAndDelete(taskId);
 
             console.log(`Task ${taskId} permanently deleted by User ${requestingUser._id}`);
 
             return res.status(204).send();
-             // Or send 200 with a message if preferred:
+            // Or send 200 with a message if preferred:
             // return res.status(200).json({ success: true, message: 'Task deleted successfully.' });
 
         } else {

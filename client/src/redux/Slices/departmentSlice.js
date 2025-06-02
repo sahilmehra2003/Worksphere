@@ -19,7 +19,10 @@ export const fetchAllDepartments = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await apiConnector('GET', DEPARTMENT_ENDPOINTS.GET_ALL_DEPARTMENTS_API);
-            return response.data;
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to fetch departments.');
+            }
+            return response.data.data; // Return the departments array from the data field
         } catch (error) {
             const message = error.response?.data?.message || error.message || 'Failed to fetch departments.';
             return rejectWithValue(message);

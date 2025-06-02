@@ -12,17 +12,17 @@ const timesheetSchema = new mongoose.Schema(
             required: [true, "Week start date is required."],
             index: true,
             validate: {
-                validator: function(value) {
-                    return value.getUTCDay() === 1; 
+                validator: function (value) {
+                    return value.getUTCDay() === 1;
                 },
-                message: 'Week start date must be a Monday.' 
+                message: 'Week start date must be a Monday.'
             }
         },
         status: {
             type: String,
             enum: {
                 values: ['Draft', 'Submitted', 'Approved', 'Rejected'],
-                message: 'Invalid timesheet status `{VALUE}`.' 
+                message: 'Invalid timesheet status `{VALUE}`.'
             },
             required: true,
             default: 'Draft',
@@ -55,12 +55,12 @@ const timesheetSchema = new mongoose.Schema(
             trim: true,
             maxlength: [500, 'Rejection reason cannot exceed 500 characters.'],
             required: [
-                function() { return this.status === 'Rejected'; }, 
+                function () { return this.status === 'Rejected'; },
                 'Rejection reason is required when rejecting a timesheet.'
             ]
         },
 
-        managerComments: { 
+        managerComments: {
             type: String,
             trim: true,
             maxlength: [1000, 'Manager comments cannot exceed 1000 characters.']
@@ -72,32 +72,40 @@ const timesheetSchema = new mongoose.Schema(
         },
     },
     {
-        timestamps: true 
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
     }
 );
 
+// Virtual populate for entries
+timesheetSchema.virtual('entries', {
+    ref: 'TimesheetEntry',
+    localField: '_id',
+    foreignField: 'timesheet'
+});
 
 timesheetSchema.index({ employee: 1, weekStartDate: 1 }, { unique: true });
 timesheetSchema.index({ employee: 1, status: 1 });
 
 
-timesheetSchema.pre('save', function(next) {
+timesheetSchema.pre('save', function (next) {
     // If status changed to Submitted and submittedDate isn't already set
     if (this.isModified('status') && this.status === 'Submitted' && !this.submittedDate) {
         this.submittedDate = new Date();
     }
     if (this.isModified('status') && ['Approved', 'Rejected'].includes(this.status) && !this.processedDate) {
-         this.processedDate = new Date();
+        this.processedDate = new Date();
     }
-  
-     if (this.isModified('status') && this.status !== 'Rejected') {
-         this.rejectionReason = undefined; // Use undefined to remove the field if not set
-     }
+
+    if (this.isModified('status') && this.status !== 'Rejected') {
+        this.rejectionReason = undefined; // Use undefined to remove the field if not set
+    }
     next();
 });
 
 
-timesheetSchema.pre('findOneAndUpdate', function(next) {
+timesheetSchema.pre('findOneAndUpdate', function (next) {
     // 'this' refers to the query object
     const update = this.getUpdate(); // Get the update operations, e.g., { $set: { status: 'Approved', ... } }
 
@@ -125,10 +133,10 @@ timesheetSchema.pre('findOneAndUpdate', function(next) {
         // If status is changing TO something other than 'Rejected'
         if (newStatus !== 'Rejected') {
             // If rejectionReason is not being explicitly set in this same update...
-             if (!update.$set.hasOwnProperty('rejectionReason')) {
-                 // ...ensure it gets cleared using $unset
-                 if (!update.$unset) update.$unset = {}; // Initialize $unset if needed
-                 update.$unset.rejectionReason = ""; // Value for $unset doesn't matter
+            if (!update.$set.hasOwnProperty('rejectionReason')) {
+                // ...ensure it gets cleared using $unset
+                if (!update.$unset) update.$unset = {}; // Initialize $unset if needed
+                update.$unset.rejectionReason = ""; // Value for $unset doesn't matter
             }
             // Note: This doesn't prevent setting a reason when status is NOT Rejected.
             // Schema validation handles requiring reason *when* status IS Rejected.

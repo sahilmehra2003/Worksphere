@@ -14,7 +14,7 @@ export const getEmployee = async (req, res) => {
     }
 
     const employee = await Employee.findById(id)
-      .populate('department', 'name ') 
+      .populate('department', 'name ')
       .populate('currentProjects', 'name status') // Only include necessary project fields
       .populate('projectTeam', 'name') // Only include necessary team fields
       .lean();
@@ -50,40 +50,85 @@ export const getEmployee = async (req, res) => {
 
 export const getAllEmployees = async (req, res) => {
   try {
-    const { departmentId } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      role,
+      department,
+      employmentStatus,
+      workingStatus,
+      sortField = 'name',
+      sortDirection = 'asc'
+    } = req.query;
+
+    // Build query object
     let query = {};
 
-    // Department filter
-    if (departmentId) {
-      query.department = departmentId;
+    // Search by name or email
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
     }
+
+    // Apply filters
+    if (role) query.role = role;
+    if (department) query.department = department;
+    if (employmentStatus) query.employmentStatus = employmentStatus;
+    if (workingStatus) query.workingStatus = workingStatus;
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Build sort object
+    const sort = {};
+    sort[sortField] = sortDirection === 'desc' ? -1 : 1;
 
     // Regular employees can only see basic info of other employees
     const projection = req.user.role === "Admin" ? {} : {
       name: 1,
-      position: 1,
+      role: 1,
       department: 1,
-      email: 1
+      email: 1,
+      employmentStatus: 1,
+      workingStatus: 1
     };
 
-    const employees = await Employee.find(query)
-      .populate('department', 'name')
-      .select(projection)
-      .lean();
+    // Execute query with pagination and sorting
+    const [employees, totalRecords] = await Promise.all([
+      Employee.find(query)
+        .populate('department', 'name')
+        .select(projection)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Employee.countDocuments(query)
+    ]);
 
     if (!employees.length) {
-      return res.status(404).json({
-        success: false,
-        message: departmentId 
-          ? `No employees found in department ${departmentId}`
-          : 'No employees found'
+      return res.status(200).json({
+        success: true,
+        message: 'No employees found matching the criteria',
+        data: [],
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: 0,
+          totalRecords: 0
+        }
       });
     }
 
     return res.status(200).json({
       success: true,
-      count: employees.length,
-      data: employees
+      data: employees,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalRecords / parseInt(limit)),
+        totalRecords
+      }
     });
 
   } catch (error) {
@@ -129,7 +174,7 @@ export const createEmployee = async (req, res) => {
 
     // Update related documents
     const updatePromises = [];
-    
+
     if (req.body.department) {
       updatePromises.push(
         Department.findByIdAndUpdate(
@@ -229,7 +274,7 @@ export const updateEmployee = async (req, res) => {
 
 export const completeExistingUserProfile = async (req, res) => {
   try {
-    const { name, position, country, state, city, phoneNumber,image } = req.body;
+    const { name, position, country, state, city, phoneNumber, image } = req.body;
     const userId = req.user._id; // Get user ID from authN middleware
 
     // Validate required fields (email is already part of req.user, name might be too)
@@ -297,109 +342,109 @@ export const completeExistingUserProfile = async (req, res) => {
 
 export const updatePassword = async (req, res) => {
   try {
-      const { currentPassword, newPassword, confirmPassword } = req.body;
+    const { currentPassword, newPassword, confirmPassword } = req.body;
 
-      if (!currentPassword || !newPassword || !confirmPassword) {
-          return res.status(400).json({
-              success: false,
-              message: "All fields are required: currentPassword, newPassword, confirmPassword."
-          });
-      }
-      if (newPassword !== confirmPassword) {
-          return res.status(400).json({
-              success: false,
-              message: "New password and confirmation password do not match."
-          });
-      }
-
-      if (newPassword.length < 6) { 
-           return res.status(400).json({
-              success: false,
-              message: "New password must be at least 6 characters long."
-          });
-      }
-      const employeeId = req.user?._id;
-      if (!employeeId) {
-           console.error("Update Password Error: req.user._id not found after authN.");
-           return res.status(401).json({ success: false, message: "Authentication error: User ID not found." });
-      }
-      const employee = await Employee.findById(employeeId).select("+password");
-      if (!employee) {
-           console.error(`Update Password Error: Authenticated employee ${employeeId} not found in DB.`);
-           return res.status(404).json({ success: false, message: "Authenticated user not found." });
-      }
-
-      const isCurrentPasswordCorrect = await employee.matchPassword(currentPassword);
-      if (!isCurrentPasswordCorrect) {
-           return res.status(401).json({ 
-               success: false,
-               message: "Incorrect current password."
-           });
-      }
-
-      if (currentPassword === newPassword) {
-          return res.status(400).json({
-              success: false,
-              message: "New password cannot be the same as the current password."
-          });
-      }
-      employee.password = newPassword;
-      await employee.save(); 
-
-      console.log(`Password updated successfully for employee ${employee.email}`);
-      return res.status(200).json({
-          success: true,
-          message: "Password updated successfully."
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required: currentPassword, newPassword, confirmPassword."
       });
+    }
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password and confirmation password do not match."
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters long."
+      });
+    }
+    const employeeId = req.user?._id;
+    if (!employeeId) {
+      console.error("Update Password Error: req.user._id not found after authN.");
+      return res.status(401).json({ success: false, message: "Authentication error: User ID not found." });
+    }
+    const employee = await Employee.findById(employeeId).select("+password");
+    if (!employee) {
+      console.error(`Update Password Error: Authenticated employee ${employeeId} not found in DB.`);
+      return res.status(404).json({ success: false, message: "Authenticated user not found." });
+    }
+
+    const isCurrentPasswordCorrect = await employee.matchPassword(currentPassword);
+    if (!isCurrentPasswordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: "Incorrect current password."
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password cannot be the same as the current password."
+      });
+    }
+    employee.password = newPassword;
+    await employee.save();
+
+    console.log(`Password updated successfully for employee ${employee.email}`);
+    return res.status(200).json({
+      success: true,
+      message: "Password updated successfully."
+    });
 
   } catch (error) {
-      return res.status(500).json({
-          success: false,
-          message: 'Server error updating password.',
-          error: error.message
-      });
+    return res.status(500).json({
+      success: false,
+      message: 'Server error updating password.',
+      error: error.message
+    });
   }
 };
 
 export const setEmployeeInactive = async (req, res) => {
   try {
     const { id } = req.params;
-    const {employmentStatus}=req.body
+    const { employmentStatus } = req.body
     if (!id) {
-       return res.status(400).json({
-          success:false,
-          message:"Invalid employee id provided"
-       })
+      return res.status(400).json({
+        success: false,
+        message: "Invalid employee id provided"
+      })
     }
     if (!employmentStatus) {
-       return res.status(400).json({
-          success:false,
-          message:"Please provide the employment status"
-       })
+      return res.status(400).json({
+        success: false,
+        message: "Please provide the employment status"
+      })
     }
-    
-    if (!['Terminated','Resigned'].includes(employmentStatus)) {
-        return res.status(404).json({
-            success:false,
-            message:"This controller is to set employee inactive"
-        })
+
+    if (!['Terminated', 'Resigned'].includes(employmentStatus)) {
+      return res.status(404).json({
+        success: false,
+        message: "This controller is to set employee inactive"
+      })
     }
     const employeeToCleanup = await Employee.findById(id);
     if (!employeeToCleanup) {
-       return res.status(404).json({
-          success:false,
-          message:"Employee not found"
-       })
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found"
+      })
     }
-    if (!['working','pending_approval']) {
-       return res.status(404).json({
-        
-          success:false,
-          message:"Employee is already incactive"
-       })
+    if (!['working', 'pending_approval']) {
+      return res.status(404).json({
+
+        success: false,
+        message: "Employee is already incactive"
+      })
     }
-    const updateEmployee = await Employee.findByIdAndUpdate(id,{
-      employmentStatus:employmentStatus
+    const updateEmployee = await Employee.findByIdAndUpdate(id, {
+      employmentStatus: employmentStatus
     }, { new: true, runValidators: true }).select("-password");
     if (!updateEmployee) {
       return res.status(404).json({
@@ -410,7 +455,7 @@ export const setEmployeeInactive = async (req, res) => {
 
     // Remove employee references from related documents
     const updatePromises = [];
-    
+
     if (updateEmployee.department) {
       updatePromises.push(
         Department.findByIdAndUpdate(
@@ -423,12 +468,12 @@ export const setEmployeeInactive = async (req, res) => {
     if (employeeToCleanup.currentProjects && employeeToCleanup.currentProjects.length > 0) {
       // Use updateMany for arrays
       updatePromises.push(
-          Project.updateMany(
-              { _id: { $in: employeeToCleanup.currentProjects } },
-              { $pull: { members: id } } 
-          )
+        Project.updateMany(
+          { _id: { $in: employeeToCleanup.currentProjects } },
+          { $pull: { members: id } }
+        )
       );
-  }
+    }
 
     if (updateEmployee.projectTeam) {
       updatePromises.push(
