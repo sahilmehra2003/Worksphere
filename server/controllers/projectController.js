@@ -2,6 +2,8 @@ import Project from '../models/projectSchema.js';
 import ProjectTeam from '../models/projectTeamSchema.js';
 import Client from '../models/clientSchema.js';
 import Department from '../models/departmentSchema.js'; // Import Department model
+import { Revenue } from '../models/revenueSchema.model.js';
+import { Expense } from '../models/expenseSchema.model.js';
 
 // Helper to normalize project
 function normalizeProject(project) {
@@ -18,7 +20,27 @@ function normalizeProject(project) {
     clientId: project.clientId || null, // Will be populated object or ID
     teamId: project.teamId || [],     // Will be populated array or ID array
     departmentId: project.departmentId || null, // Will be populated object or ID
+    revenueGenerated: project.revenueGenerated || 0,
+    revenues: project.revenues || [],
+    expenses: project.expenses || []
   };
+}
+
+// Helper function to update project financial totals
+async function updateProjectFinancials(projectId) {
+  const project = await Project.findById(projectId)
+    .populate('revenues')
+    .populate('expenses');
+
+  if (!project) return null;
+
+  const totalRevenue = project.revenues.reduce((sum, rev) => sum + (rev.amount || 0), 0);
+  const totalExpenses = project.expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+
+  project.revenueGenerated = totalRevenue;
+  project.totalExpenses = totalExpenses;
+
+  return project.save();
 }
 
 export const getAllProjects = async (req, res) => {
@@ -26,7 +48,10 @@ export const getAllProjects = async (req, res) => {
     const projects = await Project.find()
       .populate('clientId', 'name _id')
       .populate('teamId', 'teamName _id')
-      .populate('departmentId', 'name'); // Added departmentId population
+      .populate('departmentId', 'name')
+      .populate('revenues', 'amount date category status')
+      .populate('expenses', 'amount date category status');
+
     res.status(200).json({
       success: true,
       message: "Successfully fetched all projects",
@@ -43,7 +68,9 @@ export const getProjectById = async (req, res) => {
     const project = await Project.findById(req.params.id)
       .populate('clientId', 'name _id')
       .populate('teamId', 'teamName _id')
-      .populate('departmentId', 'name'); // Added departmentId population
+      .populate('departmentId', 'name')
+      .populate('revenues', 'amount date category status')
+      .populate('expenses', 'amount date category status');
 
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
@@ -61,7 +88,7 @@ export const getProjectById = async (req, res) => {
 
 export const createProject = async (req, res) => {
   try {
-    const { name, description, status, startDate, clientId, endDate, budget, totalExpenses, teamId, departmentId } = req.body; // Added departmentId
+    const { name, description, status, startDate, clientId, endDate, budget, teamId, departmentId } = req.body;
     if (!name || !status || !startDate || !budget) {
       return res.status(400).json({
         success: false,
@@ -75,9 +102,10 @@ export const createProject = async (req, res) => {
       startDate,
       endDate,
       budget,
-      totalExpenses,
       status,
-      departmentId // Added departmentId
+      departmentId,
+      revenueGenerated: 0,
+      totalExpenses: 0
     };
 
     if (teamId) {
@@ -97,14 +125,16 @@ export const createProject = async (req, res) => {
     if (newProject.clientId) {
       await Client.findByIdAndUpdate(newProject.clientId, { $addToSet: { project: newProject._id } });
     }
-    if (newProject.departmentId) { // Sync with Department model
+    if (newProject.departmentId) {
       await Department.findByIdAndUpdate(newProject.departmentId, { $addToSet: { currentProjects: newProject._id } });
     }
 
     const populatedProject = await Project.findById(newProject._id)
       .populate('clientId', 'name _id')
       .populate('teamId', 'teamName _id')
-      .populate('departmentId', 'name'); // Added departmentId population
+      .populate('departmentId', 'name')
+      .populate('revenues', 'amount date category status')
+      .populate('expenses', 'amount date category status');
 
     return res.status(201).json({
       success: true,
@@ -142,11 +172,16 @@ export const updateProject = async (req, res) => {
       runValidators: true
     });
 
-    if (!updatedProject) { // Should ideally be caught by originalProject check
+    if (!updatedProject) {
       return res.status(404).json({
         success: false,
         message: "Project not Found after update attempt"
       });
+    }
+
+    // Update financial totals if needed
+    if (updateData.hasOwnProperty('revenues') || updateData.hasOwnProperty('expenses')) {
+      await updateProjectFinancials(id);
     }
 
     // Sync Department reference if departmentId changed
@@ -185,11 +220,12 @@ export const updateProject = async (req, res) => {
       }
     }
 
-
     const populatedProject = await Project.findById(updatedProject._id)
       .populate('clientId', 'name _id')
       .populate('teamId', 'teamName _id')
-      .populate('departmentId', 'name'); // Added departmentId population
+      .populate('departmentId', 'name')
+      .populate('revenues', 'amount date category status')
+      .populate('expenses', 'amount date category status');
 
     return res.status(200).json({
       success: true,

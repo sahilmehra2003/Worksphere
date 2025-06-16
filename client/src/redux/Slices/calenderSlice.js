@@ -117,9 +117,9 @@ export const addCustomHoliday = createAsyncThunk(
             }
             const state = getState().calendar;
             if (state.currentCalendarDetails?.country === countryCode) {
-                dispatch(fetchCountryCalendarDetails(countryCode)); // Refresh details
+                dispatch(fetchCountryCalendarDetails(countryCode)); 
             }
-            return response.data; // { success, message, data: updatedCalendar }
+            return response.data; 
         } catch (error) {
             const message = error.response?.data?.message || error.message || 'Failed to add holiday.';
             return rejectWithValue(message);
@@ -133,15 +133,15 @@ export const deleteHoliday = createAsyncThunk(
     async ({ countryCode, holidayId }, { dispatch, getState, rejectWithValue }) => {
         try {
             const response = await apiConnector('DELETE', CALENDAR_ENDPOINTS.DELETE_HOLIDAY_API(countryCode, holidayId));
-            // Controller returns { success, message } (does not return updated calendar)
+            
             if (!response.data.success) {
                 return rejectWithValue(response.data.message || 'Failed to delete holiday.');
             }
             const state = getState().calendar;
             if (state.currentCalendarDetails?.country === countryCode) {
-                dispatch(fetchCountryCalendarDetails(countryCode)); // Refresh details
+                dispatch(fetchCountryCalendarDetails(countryCode));
             }
-            // Return what the backend sent, plus holidayId for potential UI updates
+          
             return { ...response.data, holidayId, countryCode };
         } catch (error) {
             const message = error.response?.data?.message || error.message || 'Failed to delete holiday.';

@@ -1,4 +1,3 @@
-// apiConnector.js
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -19,7 +18,7 @@ export const apiConnector = (method, url, bodyData, headers, params) => {
     const config = {
         method: method,
         url: url,
-        data: bodyData || null,
+        data: bodyData || {}, // can't be null since the content-type is application/json
         params: params || null
     };
 
@@ -34,12 +33,12 @@ export const apiConnector = (method, url, bodyData, headers, params) => {
             return response;
         })
         .catch(error => {
-            // Don't log error if it's due to aborting
+         
             if (error.name === 'AbortError' || error.name === 'CanceledError') {
                 console.log(`[apiConnector] Request to ${url} was aborted.`);
             } else {
                 console.error(`[apiConnector] Error from ${url}:`, error);
             }
-            throw error; // Re-throw the error so it can be caught by the caller
+            throw error; 
         });
 };

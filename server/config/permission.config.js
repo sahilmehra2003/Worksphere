@@ -49,6 +49,12 @@ export const Permissions = Object.freeze({
     DELETE_TRANSACTION: 'delete_transaction',
     APPROVE_TRANSACTION: 'approve_transaction',
     VIEW_TRANSACTION_REPORTS: 'view_transaction_reports',
+    // New Finance-specific permissions
+    CREATE_EXPENSE: 'create_expense',
+    CREATE_REVENUE: 'create_revenue',
+    APPROVE_EXPENSE: 'approve_expense',
+    APPROVE_REVENUE: 'approve_revenue',
+    VIEW_FINANCE_REPORTS: 'view_finance_reports',
     // clients
     MANAGE_CLIENTS: 'MANAGE_CLIENTS'
 });
@@ -86,7 +92,10 @@ export const rolePermissions = {
         Permissions.VIEW_ALL_TIMESHEETS,
         Permissions.VIEW_TEAM_TIMESHEETS,
         Permissions.VIEW_TRANSACTIONS,
-        Permissions.VIEW_TRANSACTION_REPORTS
+        Permissions.VIEW_TRANSACTION_REPORTS,
+        Permissions.APPROVE_EXPENSE,
+        Permissions.APPROVE_REVENUE,
+        Permissions.VIEW_FINANCE_REPORTS
     ],
 
     Manager: [
@@ -115,7 +124,12 @@ export const rolePermissions = {
         Permissions.VIEW_TEAM_TIMESHEETS,
         Permissions.MANAGE_CLIENTS,
         Permissions.VIEW_TRANSACTIONS,
-        Permissions.VIEW_TRANSACTION_REPORTS
+        Permissions.VIEW_TRANSACTION_REPORTS,
+        Permissions.CREATE_EXPENSE,
+        Permissions.CREATE_REVENUE,
+        Permissions.APPROVE_EXPENSE,
+        Permissions.APPROVE_REVENUE,
+        Permissions.VIEW_FINANCE_REPORTS
     ],
 
     DepartmentHead: [
@@ -143,7 +157,12 @@ export const rolePermissions = {
         Permissions.APPROVE_TIMESHEETS,
         Permissions.VIEW_TEAM_TIMESHEETS,
         Permissions.VIEW_TRANSACTIONS,
-        Permissions.VIEW_TRANSACTION_REPORTS
+        Permissions.VIEW_TRANSACTION_REPORTS,
+        Permissions.CREATE_EXPENSE,
+        Permissions.CREATE_REVENUE,
+        Permissions.APPROVE_EXPENSE,
+        Permissions.APPROVE_REVENUE,
+        Permissions.VIEW_FINANCE_REPORTS
     ],
 
     TeamHead: [
@@ -167,7 +186,10 @@ export const rolePermissions = {
         Permissions.VIEW_OTHER_TASKS,
         Permissions.APPROVE_TIMESHEETS,
         Permissions.VIEW_TEAM_TIMESHEETS,
-        Permissions.VIEW_TRANSACTIONS
+        Permissions.VIEW_TRANSACTIONS,
+        Permissions.CREATE_EXPENSE,
+        Permissions.CREATE_REVENUE,
+        Permissions.VIEW_FINANCE_REPORTS
     ],
 
     Employee: [
@@ -179,7 +201,9 @@ export const rolePermissions = {
         Permissions.VIEW_OWN_PERFORMANCE,
         Permissions.VIEW_OWN_TASKS,
         Permissions.MARK_OWN_TASK_COMPLETE,
-        Permissions.VIEW_TRANSACTIONS
+        Permissions.VIEW_TRANSACTIONS,
+        Permissions.CREATE_EXPENSE,
+        Permissions.CREATE_REVENUE
     ],
 };
 

@@ -142,8 +142,9 @@ export const getAllEmployees = async (req, res) => {
 };
 
 export const createEmployee = async (req, res) => {
+  console.log("createEmployee: Received req.body ->", JSON.stringify(req.body, null, 2));
   try {
-    // Only admins can create employees
+
     if (req.user.role !== "Admin") {
       return res.status(403).json({
         success: false,
@@ -151,73 +152,145 @@ export const createEmployee = async (req, res) => {
       });
     }
 
-    const requiredFields = ['name', 'email', 'phoneNumber', 'city', 'state', 'country', 'department', 'position', 'role'];
-    const missingFields = requiredFields.filter(field => !req.body[field]);
+    const {
+      name, email, password, 
+      phoneNumber, city, state, country,
+      department, position, role, salary, 
+      manager, 
+      googleId, 
+      isProfileComplete, 
+      employmentStatus,  
+      workingStatus,    
+      dateOfBirth,      
+      emergencyContact   
+      
+    } = req.body;
+    // Enhanced Required Fields Check
+    const requiredFields = ['name', 'email', 'phoneNumber', 'city', 'state', 'country', 'position', 'role', 'salary'];
+    const missingFields = [];
+    for (const field of requiredFields) {
+      if (req.body[field] === undefined || req.body[field] === null || req.body[field] === '') {
+        // For salary, we need to check its sub-fields
+        if (field === 'salary' && (!salary || salary.amount === undefined || !salary.currency)) {
+          missingFields.push('salary (with amount and currency)');
+        } else if (field !== 'salary') {
+          missingFields.push(field);
+        }
+      }
+    }
+    // Password is required only if googleId is not provided
+    if (!googleId && !password) {
+      missingFields.push('password (required if not signing up with Google)');
+    }
+
 
     if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: `Missing required fields: ${missingFields.join(', ')}`
+        message: `Validation Error: Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
+
+    // Specific Salary Structure Validation (already good, but let's ensure it's hit correctly)
+    if (!salary || typeof salary.amount !== 'number' || !salary.currency) {
+      return res.status(400).json({
+        success: false,
+        message: "Salary amount (number) and currency (string) are required within the salary object."
       });
     }
 
     // Check if email already exists
-    const existingEmployee = await Employee.findOne({ email: req.body.email });
+    const existingEmployee = await Employee.findOne({ email: email.toLowerCase() });
     if (existingEmployee) {
-      return res.status(409).json({
+      return res.status(409).json({ 
         success: false,
         message: "Employee with this email already exists"
       });
     }
 
-    const newEmployee = await Employee.create(req.body);
+    // Prepare salary sub-document
+    const nextReviewDate = new Date();
+    nextReviewDate.setMonth(nextReviewDate.getMonth() + 6);
 
-    // Update related documents
-    const updatePromises = [];
+    const salaryData = {
+      amount: salary.amount,
+      currency: salary.currency,
+      lastReviewDate: salary.lastReviewDate ? new Date(salary.lastReviewDate) : new Date(),
+      nextReviewDate: salary.nextReviewDate ? new Date(salary.nextReviewDate) : nextReviewDate,
+      reviewHistory: salary.reviewHistory || []
+    };
 
-    if (req.body.department) {
-      updatePromises.push(
-        Department.findByIdAndUpdate(
-          req.body.department,
-          { $push: { employees: newEmployee._id } },
-          { new: true }
-        )
+    const employeeData = {
+      name,
+      email: email.toLowerCase(), 
+      password, 
+      googleId,
+      phoneNumber,
+      city,
+      state,
+      country: country.toUpperCase(), 
+      department, 
+      position,
+      manager: manager || null,
+      role,
+      salary: salaryData,
+      isProfileComplete: isProfileComplete !== undefined ? isProfileComplete : true, 
+      employmentStatus: employmentStatus || undefined, 
+      workingStatus: workingStatus || undefined,     
+      isVerified: false, 
+   
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+      emergencyContact: emergencyContact || undefined
+    };
+
+    console.log("Attempting to create employee with data:", JSON.stringify(employeeData, null, 2));
+
+    const newEmployee = await Employee.create(employeeData);
+
+   
+    if (newEmployee.department) {
+      await Department.findByIdAndUpdate(
+        newEmployee.department,
+        { $addToSet: { employees: newEmployee._id } } 
       );
+     
     }
+   
 
-    if (req.body.currentProjects) {
-      updatePromises.push(
-        Project.findByIdAndUpdate(
-          req.body.currentProjects,
-          { $push: { teamMembers: newEmployee._id } },
-          { new: true }
-        )
-      );
-    }
+    const populatedEmployee = await Employee.findById(newEmployee._id)
+      .populate('department', 'name')
+      .populate('manager', 'name email');
+   
 
-    if (req.body.projectTeam) {
-      updatePromises.push(
-        ProjectTeam.findByIdAndUpdate(
-          req.body.projectTeam,
-          { $push: { members: newEmployee._id } },
-          { new: true }
-        )
-      );
-    }
-
-    await Promise.all(updatePromises);
-
-    return res.status(201).json({
+    return res.status(201).json({ // 201 Created
       success: true,
       message: "Employee created successfully",
-      data: newEmployee
+      data: populatedEmployee
     });
 
   } catch (error) {
     console.error("Error creating employee:", error);
+    if (error.name === 'ValidationError') {
+      const validationErrors = {};
+      for (const field in error.errors) {
+        validationErrors[field] = error.errors[field].message;
+      }
+      return res.status(400).json({
+        success: false,
+        message: "Employee validation failed.",
+        errors: validationErrors
+      });
+    }
+    if (error.code === 11000) { 
+      return res.status(409).json({
+        success: false,
+        message: "Duplicate value error. Email or Google ID might already exist.",
+        error: error.message
+      });
+    }
     return res.status(500).json({
       success: false,
-      message: 'Failed to create employee',
+      message: 'Failed to create employee due to server error.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -496,6 +569,136 @@ export const setEmployeeInactive = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to delete employee",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Add new function for salary review
+export const reviewSalary = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { newAmount, reason } = req.body;
+
+    // Only HR and Admin can review salaries
+    if (!['HR', 'Admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Only HR and Admin can review salaries"
+      });
+    }
+
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found"
+      });
+    }
+
+    const previousAmount = employee.salary.amount;
+    const percentageChange = ((newAmount - previousAmount) / previousAmount) * 100;
+
+    // Create new review entry
+    const reviewEntry = {
+      reviewDate: new Date(),
+      previousAmount,
+      newAmount,
+      percentageChange,
+      reviewedBy: req.user._id,
+      reason,
+      status: "Pending"
+    };
+
+    // Update employee salary and review history
+    employee.salary.reviewHistory.push(reviewEntry);
+    employee.salary.lastReviewDate = new Date();
+    employee.salary.nextReviewDate = new Date();
+    employee.salary.nextReviewDate.setMonth(employee.salary.nextReviewDate.getMonth() + 6);
+
+    await employee.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Salary review submitted successfully",
+      data: {
+        employee: employee._id,
+        review: reviewEntry
+      }
+    });
+
+  } catch (error) {
+    console.error("Error reviewing salary:", error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to review salary',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Add new function to approve/reject salary review
+export const updateSalaryReviewStatus = async (req, res) => {
+  try {
+    const { employeeId, reviewId } = req.params;
+    const { status } = req.body;
+
+    // Only HR and Admin can approve/reject salary reviews
+    if (!['HR', 'Admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Only HR and Admin can approve/reject salary reviews"
+      });
+    }
+
+    if (!['Approved', 'Rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status. Must be either 'Approved' or 'Rejected'"
+      });
+    }
+
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found"
+      });
+    }
+
+    // Find the review in the history
+    const review = employee.salary.reviewHistory.id(reviewId);
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: "Salary review not found"
+      });
+    }
+
+    // Update review status
+    review.status = status;
+
+    // If approved, update the actual salary
+    if (status === 'Approved') {
+      employee.salary.amount = review.newAmount;
+    }
+
+    await employee.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Salary review ${status.toLowerCase()} successfully`,
+      data: {
+        employee: employee._id,
+        review
+      }
+    });
+
+  } catch (error) {
+    console.error("Error updating salary review status:", error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update salary review status',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

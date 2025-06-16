@@ -8,7 +8,7 @@ import Client from '../models/clientSchema.js';   // Assuming you have a Client 
 import LeaveRequest from '../models/leaveRequest.model.js';
 import Timesheet from '../models/timesheet.model.js';
 import ReviewCycle from '../models/reviewCycle.model.js';
-import Transaction from '../models/transactionSchema.js'; // For financial snapshot
+// import Transaction from '../models/transactionSchema.js';
 import Announcement from '../models/announcement.model.js'; // Uncommented
 // import SystemLog from '../models/systemLog.model.js'; // TODO: For systemErrorsCount & scheduled job status
 import mongoose from 'mongoose';

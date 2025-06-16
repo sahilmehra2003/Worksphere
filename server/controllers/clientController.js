@@ -3,13 +3,15 @@ import mongoose from 'mongoose';
 import Department from '../models/departmentSchema.js';
 import Project from '../models/projectSchema.js';
 import ProjectTeam from '../models/projectTeamSchema.js';
-import Employee from '../models/employeeSchema.js'; // Added Employee import
-import { enrichClientsWithLatLng } from './geographyController.js'; // Assuming this exists
+import Employee from '../models/employeeSchema.js'; 
+import { enrichClientsWithLatLng } from './geographyController.js'; 
+import { Revenue } from '../models/revenueSchema.model.js';
+import { Expense } from '../models/expenseSchema.model.js';
 
 // Helper function to normalize client data (optional, but good for consistency)
 function normalizeClient(client) {
     if (!client) return null;
-    const clientObject = client.toObject ? client.toObject() : client; // Ensure it's a plain object
+    const clientObject = client.toObject ? client.toObject() : client; 
     return {
         _id: clientObject._id.toString(),
         name: clientObject.name,
@@ -20,37 +22,57 @@ function normalizeClient(client) {
         latLng: clientObject.latLng,
         clientCreationDate: clientObject.clientCreationDate,
         clientFinishDate: clientObject.clientFinishDate,
-        project: clientObject.project || [], // populated projects or IDs
-        projectTeam: clientObject.projectTeam || [], // populated teams or IDs
-        department: clientObject.department || [], // populated departments or IDs
+        project: clientObject.project || [], 
+        projectTeam: clientObject.projectTeam || [], 
+        department: clientObject.department || [], 
         status: clientObject.status,
+        clientExpenses: clientObject.clientExpenses || 0,
+        totalRevenue: clientObject.totalRevenue || 0,
         paymentAfterCompletion: clientObject.paymentAfterCompletion,
         createdAt: clientObject.createdAt,
         updatedAt: clientObject.updatedAt,
     };
 }
 
+// Helper function to update client financial totals
+async function updateClientFinancials(clientId) {
+    const client = await Client.findById(clientId)
+        .populate('revenues')
+        .populate('expenses');
+
+    if (!client) return null;
+
+    const totalRevenue = client.revenues.reduce((sum, rev) => sum + (rev.amount || 0), 0);
+    const totalExpenses = client.expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+
+    client.totalRevenue = totalRevenue;
+    client.clientExpenses = totalExpenses;
+
+    return client.save();
+}
 
 // Fetch all clients
 export const getAllClients = async (req, res) => {
     try {
         const clients = await Client.find()
-            .populate('department', 'name') // Populates the department array with department names
-            .populate('project', 'name') // Populate projects
-            .populate('projectTeam', 'teamName') // Populate project teams
-            .lean(); // Use .lean() for faster read-only operations if not modifying docs
+            .populate('department', 'name') 
+            .populate('project', 'name status') 
+            .populate('projectTeam', 'teamName') 
+            .populate('revenues', 'amount date category status')
+            .populate('expenses', 'amount date category status')
+            .lean(); 
 
         // const enrichedClients = await enrichClientsWithLatLng(clients); // Assuming this is how you want to use it
         // For now, let's assume latLng is already on the client or handled during create/update
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: "Successfully fetched all clients",
-            data: clients.map(normalizeClient) // Normalize if you have specific output needs
+            data: clients.map(normalizeClient) 
         });
     } catch (error) {
         console.error('Error fetching clients:', error);
-        res.status(500).json({ success: false, message: 'Internal server error fetching clients.' });
+        return res.status(500).json({ success: false, message: 'Internal server error fetching clients.' });
     }
 };
 
@@ -66,7 +88,9 @@ export const getClientById = async (req, res) => {
         const client = await Client.findById(id)
             .populate('department', 'name') // Populate the department array
             .populate('project', 'name status') // Populate the project array
-            .populate('projectTeam', 'teamName'); // Populate the projectTeam array
+            .populate('projectTeam', 'teamName') // Populate the projectTeam array
+            .populate('revenues', 'amount date category status')
+            .populate('expenses', 'amount date category status');
 
         if (!client) {
             return res.status(404).json({ success: false, message: 'Client not found.' });
@@ -84,7 +108,7 @@ export const getClientById = async (req, res) => {
 };
 
 
-// --createClient ---
+
 export const createClient = async (req, res) => {
     try {
         const {
@@ -95,12 +119,12 @@ export const createClient = async (req, res) => {
             location,
             clientCreationDate,
             clientFinishDate,
-            project, // Expecting an array of Project IDs
-            projectTeam, // Expecting an array of ProjectTeam IDs
-            department, // Expecting an array of Department IDs
+            project, 
+            projectTeam, 
+            department, 
             status,
             paymentAfterCompletion,
-            // assignedEmployees // clientSchema doesn't have assignedEmployees directly
+           
         } = req.body;
 
         if (!name || !contactPersonName || !email || !phoneNumber || !location) {
@@ -130,11 +154,13 @@ export const createClient = async (req, res) => {
             latLng: latLngValue,
             clientCreationDate: clientCreationDate || Date.now(),
             clientFinishDate,
-            project: project || [], // Ensure it's an array
-            projectTeam: projectTeam || [], // Ensure it's an array
-            department: department || [], // Ensure it's an array
-            status: status !== undefined ? status : true, // Default to active (true)
+            project: project || [], 
+            projectTeam: projectTeam || [], 
+            department: department || [], 
+            status: status !== undefined ? status : true, 
             paymentAfterCompletion,
+            totalRevenue: 0,
+            clientExpenses: 0
         };
 
         const newClient = await Client.create(clientData);
@@ -147,29 +173,23 @@ export const createClient = async (req, res) => {
         }
         if (newClient.projectTeam && newClient.projectTeam.length > 0) {
             for (const teamId of newClient.projectTeam) {
-                await ProjectTeam.findByIdAndUpdate(teamId, { clientId: newClient._id }); // Assuming ProjectTeam has one clientId
+                await ProjectTeam.findByIdAndUpdate(teamId, { clientId: newClient._id }); 
             }
         }
         if (newClient.project && newClient.project.length > 0) {
             for (const projId of newClient.project) {
-                await Project.findByIdAndUpdate(projId, { clientId: newClient._id }); // Assuming Project has one clientId
+                await Project.findByIdAndUpdate(projId, { clientId: newClient._id }); 
             }
         }
-        // If employees are linked to clients, that would be handled in employee controller or a separate linking operation.
-        // The `employeeSchema` has `client: [{ ref: "Client" }]`.
-        // If `assignedEmployees` were part of req.body for client creation:
-        // if (assignedEmployees && assignedEmployees.length > 0) {
-        //     await Employee.updateMany(
-        //         { _id: { $in: assignedEmployees } },
-        //         { $addToSet: { client: newClient._id } }
-        //     );
-        // }
+       
 
 
         const populatedClient = await Client.findById(newClient._id)
             .populate('department', 'name')
             .populate('project', 'name')
-            .populate('projectTeam', 'teamName');
+            .populate('projectTeam', 'teamName')
+            .populate('revenues', 'amount date category status')
+            .populate('expenses', 'amount date category status');
 
         return res.status(201).json({
             success: true,
@@ -199,7 +219,7 @@ export const updateClient = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid Client ID format.' });
         }
 
-        const originalClient = await Client.findById(id).lean(); // Get original for comparison
+        const originalClient = await Client.findById(id).lean(); 
         if (!originalClient) {
             return res.status(404).json({ success: false, message: "Client not found" });
         }
@@ -224,11 +244,16 @@ export const updateClient = async (req, res) => {
             { new: true, runValidators: true }
         );
 
-        if (!updatedClient) { // Should be caught by originalClient check, but good practice
+        if (!updatedClient) { 
             return res.status(404).json({ success: false, message: "Client not found after update attempt" });
         }
 
-        // Reference Synchronization
+        // Update financial totals if needed
+        if (updatePayload.hasOwnProperty('revenues') || updatePayload.hasOwnProperty('expenses')) {
+            await updateClientFinancials(id);
+        }
+
+        
         // Departments
         if (updatePayload.hasOwnProperty('department')) {
             const oldDepts = (originalClient.department || []).map(d => d.toString());
@@ -246,17 +271,17 @@ export const updateClient = async (req, res) => {
         }
 
         // Projects (Project schema has a single clientId)
-        if (updatePayload.hasOwnProperty('project')) { // 'project' in clientSchema is an array of Project IDs
+        if (updatePayload.hasOwnProperty('project')) { 
             const oldProjects = (originalClient.project || []).map(p => p.toString());
             const newProjects = (updatedClient.project || []).map(p => p.toString());
 
             const projectsToAddLink = newProjects.filter(p => !oldProjects.includes(p));
             const projectsToRemoveLink = oldProjects.filter(p => !newProjects.includes(p));
 
-            for (const projId of projectsToAddLink) { // A client is now linked to this project
+            for (const projId of projectsToAddLink) {
                 await Project.findByIdAndUpdate(projId, { clientId: updatedClient._id });
             }
-            for (const projId of projectsToRemoveLink) { // Client is unlinked from this project
+            for (const projId of projectsToRemoveLink) { 
                 await Project.findByIdAndUpdate(projId, { clientId: null });
             }
         }
@@ -277,13 +302,12 @@ export const updateClient = async (req, res) => {
             }
         }
 
-        // assignedEmployees are not directly on clientSchema, but if you had a join table or direct employee update:
-        // This would involve comparing originalClient.assignedEmployees with updatePayload.assignedEmployees if that field existed.
-
         const populatedClient = await Client.findById(updatedClient._id)
             .populate('department', 'name')
             .populate('project', 'name status')
-            .populate('projectTeam', 'teamName');
+            .populate('projectTeam', 'teamName')
+            .populate('revenues', 'amount date category status')
+            .populate('expenses', 'amount date category status');
 
 
         return res.status(200).json({
@@ -366,7 +390,7 @@ export const deactivateClient = async (req, res) => {
 
         // console.log(`Client ${clientId} (${client.name}) deactivated by User ${requestingUserId}`);
         console.log(`Client ${clientId} (${client.name}) deactivated.`);
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: `Client '${client.name}' marked as inactive successfully and associations updated.`,
             data: normalizeClient(client)
@@ -377,6 +401,6 @@ export const deactivateClient = async (req, res) => {
         if (error.name === 'ValidationError') {
             return res.status(400).json({ success: false, message: 'Validation Error', errors: error.errors });
         }
-        res.status(500).json({ success: false, message: 'Server error deactivating client.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Server error deactivating client.', error: error.message });
     }
 };

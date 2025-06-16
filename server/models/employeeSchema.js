@@ -134,6 +134,58 @@ const employeeSchema = new mongoose.Schema(
       default: 'active',
       index: true,
     },
+    salary: {
+      amount: {
+        type: Number,
+        required: [true, "Salary amount is required"],
+      },
+      currency: {
+        type: String,
+        required: [true, "Salary currency is required"],
+        enum: ["INR", "USD", "EUR"],
+        default: "INR",
+      },
+      lastReviewDate: {
+        type: Date,
+        default: Date.now
+      },
+      nextReviewDate: {
+        type: Date,
+      //  required: [true, "Next salary review date is required"]
+      },
+      reviewHistory: [{
+        reviewDate: {
+          type: Date,
+        //  required: true
+        },
+        previousAmount: {
+          type: Number,
+         // required: true
+        },
+        newAmount: {
+          type: Number,
+         // required: true
+        },
+        percentageChange: {
+          type: Number,
+         // required: true
+        },
+        reviewedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Employee",
+       //   required: true
+        },
+        reason: {
+          type: String,
+     //     required: true
+        },
+        status: {
+          type: String,
+          enum: ["Pending", "Approved", "Rejected"],
+          default: "Pending"
+        }
+      }]
+    },
     isVerified: { type: Boolean, default: false },
     accessToken: String,
     refreshToken: String,
