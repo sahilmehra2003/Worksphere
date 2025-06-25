@@ -12,14 +12,22 @@ import {
     Box,
     CircularProgress
 } from '@mui/material';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-hot-toast';
+import { useEffect } from 'react';
+import { fetchAllEmployeesPublic } from '../../redux/Slices/employeeSlice';
 
 const AddMemberModal = ({ open, onClose, onSubmit, team, loading }) => {
+    const dispatch = useDispatch();
     const { employees } = useSelector((state) => ({
         employees: state.employee.employees
     }));
 
+    useEffect(() => {
+        if (open) {
+            dispatch(fetchAllEmployeesPublic());
+        }
+    }, [open, dispatch]);
     // Filter out employees who are already team members
     const availableEmployees = employees?.filter(
         employee => !team?.members?.some(member => member._id === employee._id)

@@ -14,84 +14,58 @@ const performanceReviewSchema = new mongoose.Schema(
             required: true,
             index: true
         },
- 
+        // ADDED: An array to hold references to the goals for this cycle
+        goals: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Goal'
+        }],
+        status: {
+            type: String,
+            enum: [
+                'Not Started',
+                'Pending Self-Assessment',
+                'Pending Manager Review',
+                'Completed',
+                'Closed'
+            ],
+            default: 'Not Started',
+        },
         manager: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'Employee',
-            required: true
+            ref: 'Employee'
         },
-
-   
         selfAssessmentComments: {
             type: String,
             trim: true
         },
-
-  
         managerComments: {
             type: String,
             trim: true
         },
         managerRating: {
             type: Number,
-            required: [true, 'Manager rating is required.'],
             min: 1,
-            max: 5 
+            max: 5
         },
-
-   
-        strengths: { 
+        strengths: [{
             type: String,
             trim: true
-        },
-        areasForDevelopment: { 
+        }],
+        areasForDevelopment: [{
             type: String,
             trim: true
-        },
-
-
-        clientRating: {
-            type: Number,
-            min: 1,
-            max: 5 
-        },
-        clientComments: {
-             type: String,
-             trim: true
-        },
-
-
-        departmentHeadRating: {
-            type: Number,
-            min: 1,
-            max: 5 
-        },
-         departmentHeadComments: {
-             type: String,
-             trim: true
-        },
-        teamHeadRating: { 
-            type: Number,
-            min: 1,
-            max: 5 
-        },
-         teamLeadComments: { 
-             type: String,
-             trim: true
-        },
+        }],
         isDeleted: {
             type: Boolean,
             default: false,
-            index: true 
+            index: true
         }
-
     },
     {
-        timestamps: true 
+        timestamps: true
     }
 );
 
-// Compound index for efficient querying
 performanceReviewSchema.index({ employee: 1, reviewCycle: 1 }, { unique: true });
 
 const PerformanceReview = mongoose.model('PerformanceReview', performanceReviewSchema);

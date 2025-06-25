@@ -12,7 +12,7 @@ export const AUTH_ENDPOINTS = {
     GOOGLE_AUTH_INIT_API: createUrl('/auth/google'),
     GOOGLE_AUTH_CALLBACK_API: createUrl('/auth/google/callback'),
     REFRESH_TOKEN_API: createUrl('/auth/refresh-token'),
-
+    LOGOUT_API: createUrl('/auth/logout'),
 };
 
 
@@ -53,6 +53,8 @@ export const LEAVE_ENDPOINTS = {
     GET_MY_LEAVE_BALANCE_API: createUrl('/leaveSystem/balance'),
     CANCEL_LEAVE_API: (leaveId) => createUrl(`/leaveSystem/${leaveId}/cancel`),
     GET_EMPLOYEE_LEAVE_BALANCE_API: (employeeId) => createUrl(`/leaveSystem/balance/${employeeId}`),
+    CREATE_LEAVE_BALANCES_FOR_ALL_EMPLOYEES_API: createUrl('/leaveSystem/balance/init-all'),
+    GET_PENDING_LEAVE_REQUESTS_API: createUrl('/leaveSystem/pending'),
 };
 
 
@@ -65,19 +67,28 @@ export const CLIENT_ENDPOINTS = {
 };
 
 export const ATTENDANCE_ENDPOINTS = {
-    CLOCK_IN_API: createUrl('/attendanceRoutes/clock-in'),
-    CLOCK_OUT_API: createUrl('/attendanceRoutes/clock-out'),
-    GET_CURRENT_ATTENDANCE_STATUS_API: createUrl('/attendanceRoutes/status'),
-    GET_ATTENDANCE_HISTORY_API: createUrl('/attendanceRoutes/history'),
+    CHECK_IN_API: createUrl('/attendanceRoutes/check-in'),
+    CHECK_OUT_API: createUrl('/attendanceRoutes/check-out'),
+    FLAG_ISSUE_TO_HR_API: (attendanceId) => createUrl(`/attendanceRoutes/flag/${attendanceId}`),
+    GET_ATTENDANCE_FOR_EMPLOYEE_API: (employeeId) => createUrl(`/attendanceRoutes/employee/${employeeId}`),
+    GET_PENDING_APPROVALS_API: createUrl('/attendanceRoutes/approvals'),
+    APPROVE_OR_REJECT_SHORTFALL_API: (attendanceId) => createUrl(`/attendanceRoutes/approve/${attendanceId}`),
+    UPDATE_ATTENDANCE_BY_ADMIN_API: (attendanceId) => createUrl(`/attendanceRoutes/${attendanceId}`),
+    GET_CURRENT_ATTENDANCE_STATUS_API: createUrl('/attendanceRoutes/current-status'),
+    REQUEST_CORRECTION_API: (attendanceId) => createUrl(`/attendanceRoutes/request/correction/${attendanceId}`),
+    REQUEST_HALF_DAY_API: createUrl('/attendanceRoutes/request/half-day'),
 };
 
 export const PERFORMANCE_REVIEW_ENDPOINTS = {
-    GET_MY_PERFORMANCE_REVIEWS_API: createUrl('/employeePerformance/myPerformance'),
-    GET_TEAM_PERFORMANCE_REVIEWS_API: createUrl('/employeePerformance/teamPerformance'),
-    GET_PERFORMANCE_REVIEW_BY_ID_API: (reviewId) => createUrl(`/employeePerformance/performanceById/${reviewId}`),
-    GET_ALL_PERFORMANCE_REVIEWS_API: createUrl('/employeePerformance/getAllPerformance'),
-    UPDATE_PERFORMANCE_REVIEW_API: (reviewId) => createUrl(`/employeePerformance/updatePerformance/${reviewId}`),
-    SOFT_DELETE_PERFORMANCE_REVIEW_API: (reviewId) => createUrl(`/employeePerformance/deleteReview/${reviewId}`),
+    CREATE_REVIEW_API: createUrl('/employee-performance'),
+    GET_MY_REVIEWS_API: createUrl('/employee-performance/my-reviews'),
+    GET_TEAM_REVIEWS_API: createUrl('/employee-performance/team-reviews'),
+    GET_ALL_REVIEWS_API: createUrl('/employee-performance/all-reviews'),
+    GET_REVIEW_BY_ID_API: (reviewId) => createUrl(`/employee-performance/${reviewId}`),
+    UPDATE_REVIEW_API: (reviewId) => createUrl(`/employee-performance/${reviewId}`),
+    DELETE_REVIEW_API: (reviewId) => createUrl(`/employee-performance/${reviewId}`),
+    SUBMIT_SELF_ASSESSMENT_API: createUrl('/employee-performance/submit-self-assessment'),
+    SUBMIT_MANAGER_REVIEW_API: createUrl('/employee-performance/submit-manager-review'),
 };
 
 export const REVIEW_CYCLE_ENDPOINTS = {
@@ -101,47 +112,70 @@ export const TASK_ENDPOINTS = {
     REOPEN_TASK_API: (taskId) => createUrl(`/taskRoutes/reopenTask/${taskId}`),
     DELETE_TASK_API: (taskId) => createUrl(`/taskRoutes/deleteTask/${taskId}`),
 };
+export const GOAL_ENDPOINTS = {
+    CREATE_GOAL_API: createUrl('/goals/add-goal'),
+    // GET_GOAL_API: accepts ?employeeId=<empId>&reviewCycleId=<reviewCycleId> as query params
+    GET_GOAL_API: createUrl('/goals/view-goals'),
+    UPDATE_GOAL_PROGRESS_API: (goalId) => createUrl(`/goals/${goalId}/progress`),
+    DELETE_GOAL_API: (goalId) => createUrl(`/goals/${goalId}`),
+    ADD_GOAL_COMMENT_API: (goalId) => createUrl(`/goals/${goalId}/comment`),
+    ADD_GOAL_EVIDENCE_API: (goalId) => createUrl(`/goals/${goalId}/evidence`),
+    GET_GOALS_BY_EMPLOYEE_ID_API: (empId) => createUrl(`/goals/employee/${empId}`),
+}
 
 export const TIMESHEET_ENDPOINTS = {
-    ADD_TIMESHEET_ENTRY_API: createUrl('/timesheet/addEntries'),
-    UPDATE_TIMESHEET_ENTRY_BY_ID_API: (entryId) => createUrl(`/timesheet/updateEntries/${entryId}`),
-    DELETE_TIMESHEET_ENTRY_API: (entryId) => createUrl(`/timesheet/deleteEntries/${entryId}`),
-    // Timesheet Management
-    GET_ALL_TIMESHEETS_API: createUrl('/timesheet/getALLTimesheets'), // For Admin/HR
-    GET_MY_TIMESHEETS_API: createUrl('/timesheet/myTimeSheets'), // For logged-in employee
-    GET_SUBMITTED_TIMESHEETS_API: createUrl('/timesheet/submitted'), // For approvers
-    GET_TIMESHEET_BY_ID_API: (timesheetId) => createUrl(`/timesheet/getTimesheetById/${timesheetId}`),
-    SUBMIT_TIMESHEET_API: (timesheetId) => createUrl(`/timesheet/draftTimeSheet/${timesheetId}/submit`),
-    APPROVE_TIMESHEET_API: (timesheetId) => createUrl(`/timesheet/approveTimesheet/${timesheetId}/approve`),
-    REJECT_TIMESHEET_API: (timesheetId) => createUrl(`/timesheet/checkTimesheet/${timesheetId}/reject`),
-    DELETE_TIMESHEET_API: (timesheetId) => createUrl(`/timesheet/${timesheetId}`),
+    CREATE_TIME_LOG_API: createUrl('/timesheets/log'),
+    GET_WEEKLY_LOGS_API: (weekStartDate) => createUrl(`/timesheets/weekly?weekStartDate=${weekStartDate}`),
+    SUBMIT_WEEKLY_TIMESHEET_API: createUrl('/timesheets/submit-week'),
+    GET_PENDING_APPROVALS_API: createUrl('/timesheets/approvals'),
+    APPROVE_OR_REJECT_LOG_API: (logId) => createUrl(`/timesheets/approve/${logId}`),
 };
 
+
 export const TRANSACTION_ENDPOINTS = {
-    // Basic CRUD operations
-    GET_ALL_TRANSACTIONS_API: createUrl('/transactionsDetails/transactions'),
-    GET_TRANSACTION_BY_ID_API: (transactionId) => createUrl(`/transactionsDetails/transaction/${transactionId}`),
-    CREATE_TRANSACTION_API: createUrl('/transactionsDetails/transaction'),
-    UPDATE_TRANSACTION_API: (transactionId) => createUrl(`/transactionsDetails/transaction/${transactionId}`),
-    DELETE_TRANSACTION_API: (transactionId) => createUrl(`/transactionsDetails/transaction/${transactionId}`),
+    // --- Expense Routes ---
+    CREATE_EXPENSE_API: createUrl('/transactions/expenses'),
+    CREATE_PROJECT_EXPENSE_API: createUrl('/transactions/expenses/create-project-expense'),
+    GET_PENDING_EXPENSES_API: createUrl('/transactions/expenses/get-pending-expenses'),
+    APPROVE_EXPENSE_API: (expenseId) => createUrl(`/transactions/expenses/${expenseId}/approve`),
+    UPDATE_EXPENSE_API: (expenseId) => createUrl(`/transactions/expenses/${expenseId}`),
+    DELETE_EXPENSE_API: (expenseId) => createUrl(`/transactions/expenses/${expenseId}`),
 
-    // Reports and Analytics
-    GET_MONTHLY_REPORT_API: createUrl('/transactionsDetails/transactions/monthly-report'),
-    GET_AVAILABLE_YEARS_API: createUrl('/transactionsDetails/transactions/available-years'),
-    GET_DEPARTMENT_TRANSACTIONS_API: (departmentId) => createUrl(`/transactionsDetails/transactions/department/${departmentId}`),
-    GET_PROJECT_TRANSACTIONS_API: (projectId) => createUrl(`/transactionsDetails/transactions/project/${projectId}`),
-    GET_CLIENT_TRANSACTIONS_API: (clientId) => createUrl(`/transactionsDetails/transactions/client/${clientId}`),
+    // Recurring and Automated Expense Routes
+    TRIGGER_MONTHLY_SALARY_EXPENSE_API: createUrl('/transactions/expenses/generate-monthly-salaries'),
+    CREATE_RECURRING_EXPENSE_API: createUrl('/transactions/expenses/recurring/create'),
+    FETCH_RECURRING_EXPENSE_API: createUrl('/transactions/expenses/recurring/fetch'),
 
-    // Approval workflow
-    APPROVE_TRANSACTION_API: (transactionId) => createUrl(`/transactionsDetails/transaction/${transactionId}/approve`),
+    // --- Revenue Routes ---
+    CREATE_REVENUE_API: createUrl('/transactions/revenue'),
+    CREATE_PROJECT_REVENUE_API: createUrl('/transactions/revenue/create-project-revenue'),
+    GET_PENDING_REVENUES_API: createUrl('/transactions/revenue/get-pending-revenue'),
+    APPROVE_REVENUE_API: (revenueId) => createUrl(`/transactions/revenue/${revenueId}/approve`),
+    UPDATE_REVENUE_API: (revenueId) => createUrl(`/transactions/revenue/${revenueId}`), // <-- ADDED
+    DELETE_REVENUE_API: (revenueId) => createUrl(`/transactions/revenue/${revenueId}`), // <-- ADDED
 
-    // Statistics
-    GET_TRANSACTION_STATS_API: createUrl('/transactionsDetails/transactions/stats'),
+    // --- Reporting and Financial Period Routes ---
+    GET_ANNUAL_REPORT_API: createUrl('/transactions/periods/annual'),
+    GET_MONTHLY_REPORT_API: createUrl('/transactions/reports/monthly'),
+    GET_DEPARTMENT_FINANCIAL_SUMMARY_API: createUrl('/transactions/reports/department-summary'),
+    GET_PENDING_FINANCIAL_REPORT_API: createUrl('/transactions/reports/get-pending-financial-period-report'),
+    GET_DEPARTMENT_SALARY_EXPENSE_API: (departmentId) => createUrl(`/transactions/reports/department-salary-expense/${departmentId}`),
+
+    // Financial Period Management
+    GET_ALL_PERIODS_API: createUrl('/transactions/periods'),
+    GET_PERIOD_SUMMARY_API: createUrl('/transactions/periods/summary'),
+    UPDATE_PERIOD_STATUS_API: (periodId) => createUrl(`/transactions/periods/${periodId}/status`),
+    UPDATE_FINANCIAL_PERIOD_API: (periodId) => createUrl(`/transactions/periods/${periodId}`),
+    DELETE_FINANCIAL_PERIOD_API: (periodId) => createUrl(`/transactions/periods/${periodId}`),
+
+    // General Utility
+    GET_AVAILABLE_YEARS_API: createUrl('/transactions/available-years'),
 };
 
 export const PROJECT_ENDPOINTS = {
 
     GET_ALL_PROJECTS_API: createUrl('/projectData/projects'),
+    GET_MY_PROJECTS_API: createUrl('/projectData/projects/my'),
     GET_PROJECT_BY_ID_API: (projectId) => createUrl(`/projectData/projects/${projectId}`),
     CREATE_PROJECT_API: createUrl('/projectData/projects/create'),
     UPDATE_PROJECT_API: (projectId) => createUrl(`/projectData/projects/${projectId}`),
@@ -188,3 +222,14 @@ export const TEAM_ENDPOINTS = {
     ADD_TEAM_MEMBER_API: (teamId) => createUrl(`/teamRoutes/teams/${teamId}/members`),
     REMOVE_TEAM_MEMBER_API: (teamId) => createUrl(`/teamRoutes/teams/${teamId}/members`),
 };
+
+export const BONUS_ENDPOINTS = {
+    FETCH_BONUS_TYPES: '/api/v1/bonus/types',
+    SEED_BONUS_TYPES: '/api/v1/bonus/seed-types',
+    FETCH_MY_BONUS_AWARDS: '/api/v1/bonus/my-awards',
+    CREATE_BONUS_AWARD: '/api/v1/bonus/awards',
+    GET_PENDING_BONUS_APPROVALS: '/api/v1/bonus/pending-approvals',
+    APPROVE_REJECT_BONUS: (awardId) => `/api/v1/bonus/approve-reject/${awardId}`,
+    MARK_BONUS_AS_PAID: '/api/v1/bonus/mark-paid'
+};
+

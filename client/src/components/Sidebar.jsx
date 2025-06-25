@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import {
     Box, Drawer, IconButton, List, ListItem,
     ListItemButton, ListItemIcon, ListItemText, Typography, useTheme
@@ -14,9 +15,11 @@ import {
     Groups,
     CalendarMonthOutlined,
     Task,
-    FilterList,
-    History,
-    LocalOffer
+    Money,
+    Reviews,
+    ReviewsSharp,
+    Dashboard,
+    Approval,
 } from "@mui/icons-material";
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import ApartmentIcon from '@mui/icons-material/Apartment';
@@ -24,29 +27,41 @@ import PersonIcon from '@mui/icons-material/Person';
 import { PublicOutlined } from '@mui/icons-material';
 import logo from '../assets/logo-png.png';
 import FlexBetween from './FlexBetween';
+import { GrPerformance } from 'react-icons/gr';
+import AutorenewIcon from '@mui/icons-material/Autorenew';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+
 const logoStyle = {
     filter: "invert(1) hue-rotate(180deg)",
 };
 const navItems = [
+
     { id: 'client-section', text: "Client Facing", icon: null, isSectionHeader: true },
     { id: 'clients', text: "Clients", icon: <Groups2Outlined />, path: 'clients' },
     { id: 'projects', text: "Projects", icon: <Assignment />, path: 'projects' },
     { id: 'geography', text: "Geography", icon: <PublicOutlined />, path: 'geography' },
     { id: 'transaction-section', text: "Transaction Data", icon: null, isSectionHeader: true },
     { id: 'transactions', text: "Transactions", icon: <ReceiptLongOutlined />, path: 'transactions' },
-    { id: 'transaction-filters', text: "Transaction Filters", icon: <FilterList />, path: 'transaction-filters' },
-    { id: 'payment-history', text: "Payment History", icon: <History />, path: 'payment-history' },
-    { id: 'transaction-tags', text: "Transaction Tags", icon: <LocalOffer />, path: 'transaction-tags' },
+    { id: 'recurring-transactions', text: "Recurring", icon: <AutorenewIcon />, path: 'recurring-transactions' },
+    { id: 'add-transactions', text: "Add Txn", icon: <AddCircleOutlineIcon />, path: 'add-transactions' },
+    { id: 'aprove-transactions', text: "Approve Txn", icon: <CheckCircleOutlineIcon />, path: 'approve-transactions' },
     { id: 'employee-section', text: "Employee Data", icon: null, isSectionHeader: true },
+    // { id: 'dashboard', text: "Dashboard", icon: <Dashboard />, path: 'dashboard' },
     { id: 'employees', text: "Employees", icon: <PersonIcon />, path: 'employees' },
     { id: 'task', text: "Tasks", icon: <Task />, path: 'tasks' },
+    { id: 'performance', text: "Performace", icon: <Reviews />, path: 'performance' },
+    { id: 'goal', text: "Goal", icon: <GrPerformance />, path: 'goal' },
     { id: 'department-section', text: "Department Data", icon: null, isSectionHeader: true },
     { id: 'departments', text: "Departments", icon: <ApartmentIcon />, path: 'departments' },
     { id: 'project-teams', text: "Teams", icon: <Groups />, path: 'teams' },
     { id: 'management-section', text: "Management", icon: null, isSectionHeader: true },
+    { id: 'logs', text: 'TimeLog', icon: <Assignment />, path: 'timelog' },
     { id: 'company calendar', text: "Calendar", icon: <CalendarMonthOutlined />, path: 'calendar' },
-    { id: 'leave', text: 'Leave System', icon: <EventBusyIcon />, path: 'Leave System' },
-    { id: 'timesheet', text: 'Timesheet', icon: <Assignment />, path: 'timesheet' },
+    { id: 'leave', text: 'Leave System', icon: <EventBusyIcon />, path: 'leave-system' },
+    { id: 'bonus-system', text: 'Bonus System', icon: <Money />, path: 'bonus-system' },
+    { id: 'review-cycle', text: 'Review Cycle', icon: <ReviewsSharp />, path: 'review-cycle' },
+    { id: 'leave-approval', text: 'Leave Approval', icon: <Approval />, path: 'leave-approval' }
 ].filter(Boolean);
 
 const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) => {
@@ -54,10 +69,21 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
     const { pathname } = useLocation();
     const [active, setActive] = useState("");
     const navigate = useNavigate();
+    const { user: authUser } = useSelector((state) => state.auth);
+    const userRole = authUser?.role;
 
     useEffect(() => {
         setActive(pathname.substring(pathname.lastIndexOf('/') + 1));
     }, [pathname]);
+
+    // Filter navItems based on user role
+    const filteredNavItems = navItems.filter(item => {
+        // Show leave approval only for Admin, HR, and Manager
+        if (item.id === 'leave-approval') {
+            return ['Admin', 'HR', 'Manager'].includes(userRole);
+        }
+        return true; // Show all other items
+    });
 
     return (
         <Box component="nav">
@@ -108,7 +134,7 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                     >
                         <FlexBetween>
                             <Box display="flex" alignItems="center" gap="0.5rem">
-                                <Box component="img" src={logo} alt="Logo" sx={{ width: 160, scale: "1.7" }} />
+                                <Box component="img" src={logo} alt="Logo" sx={{ width: 160, scale: "1.7", paddingBottom: "25px" }} />
                             </Box>
                             {!isNonMobile && (
                                 <IconButton onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
@@ -119,10 +145,10 @@ const Sidebar = ({ drawerWidth, isSidebarOpen, setIsSidebarOpen, isNonMobile }) 
                     </Box>
 
 
-                    {/* Navigation Items */}
+
                     <Box width="100%">
                         <List>
-                            {navItems.map(({ id, text, icon, isSectionHeader, isSticky, path }) => {
+                            {filteredNavItems.map(({ id, text, icon, isSectionHeader, isSticky, path }) => {
                                 if (isSectionHeader) {
                                     return (
                                         <Typography

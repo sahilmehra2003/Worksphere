@@ -1,151 +1,92 @@
 import mongoose from 'mongoose';
-const timesheetSchema = new mongoose.Schema(
-    {
-        employee: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Employee',
-            required: [true, "Timesheet must belong to an employee."],
-            index: true
-        },
-        weekStartDate: {
-            type: Date,
-            required: [true, "Week start date is required."],
-            index: true,
-            validate: {
-                validator: function (value) {
-                    return value.getUTCDay() === 1;
-                },
-                message: 'Week start date must be a Monday.'
-            }
-        },
+const { Schema } = mongoose;
+
+const timeLogSchema = new Schema({
+    employee: {
+        type: Schema.Types.ObjectId,
+        ref: 'Employee',
+        required: true,
+        index: true,
+    },
+    // Link to the specific attendance record for the day
+    attendance: {
+        type: Schema.Types.ObjectId,
+        ref: 'Attendance',
+        required: true,
+    },
+    project: {
+        type: Schema.Types.ObjectId,
+        ref: 'Project',
+        required: true,
+    },
+    task: {
+        type: Schema.Types.ObjectId,
+        ref: 'Task', 
+    },
+    date: {
+        type: Date,
+        required: true,
+        index: true,
+    },
+  
+    weekStartDate: {
+        type: Date,
+        required: true,
+        index: true,
+    },
+    hours: {
+        type: Number,
+        required: true,
+        min: 0.1,
+        max: 24,
+    },
+    notes: { 
+        type: String,
+        trim: true,
+        required: true,
+    },
+    approval: {
         status: {
             type: String,
-            enum: {
-                values: ['Draft', 'Submitted', 'Approved', 'Rejected'],
-                message: 'Invalid timesheet status `{VALUE}`.'
-            },
-            required: true,
-            default: 'Draft',
-            index: true
+            enum: ['Pending', 'Approved', 'Rejected'],
+            default: 'Pending',
         },
-        totalHours: {
-            type: Number,
-            default: 0,
-            min: [0, 'Total hours cannot be negative.']
-        },
-
-        submittedDate: {
-            type: Date,
-            default: null
-        },
-
-        processedBy: {
-            type: mongoose.Schema.Types.ObjectId,
+        manager: {
+            type: Schema.Types.ObjectId,
             ref: 'Employee',
-            default: null
         },
-
-        processedDate: {
-            type: Date,
-            default: null
-        },
-
         rejectionReason: {
             type: String,
             trim: true,
-            maxlength: [500, 'Rejection reason cannot exceed 500 characters.'],
-            required: [
-                function () { return this.status === 'Rejected'; },
-                'Rejection reason is required when rejecting a timesheet.'
-            ]
         },
-
-        managerComments: {
-            type: String,
-            trim: true,
-            maxlength: [1000, 'Manager comments cannot exceed 1000 characters.']
-        },
-        employeeComments: {
-            type: String,
-            trim: true,
-            maxlength: [1000, 'Employee comments cannot exceed 1000 characters.']
+        approvedAt: {
+            type: Date,
         },
     },
-    {
-        timestamps: true,
-        toJSON: { virtuals: true },
-        toObject: { virtuals: true }
+    // Flag for HR intervention if needed
+    isFlagged: {
+        type: Boolean,
+        default: false,
+    },
+    flaggedBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'Employee',
+    },
+    flagReason: {
+        type: String,
+        trim: true,
     }
-);
-
-// Virtual populate for entries
-timesheetSchema.virtual('entries', {
-    ref: 'TimesheetEntry',
-    localField: '_id',
-    foreignField: 'timesheet'
+}, {
+    timestamps: true
 });
 
-timesheetSchema.index({ employee: 1, weekStartDate: 1 }, { unique: true });
-timesheetSchema.index({ employee: 1, status: 1 });
+// Compound index to speed up fetching a specific employee's logs for a specific week
+timeLogSchema.index({ employee: 1, weekStartDate: 1 });
+
+// Index to help find pending approvals for a manager
+timeLogSchema.index({ 'approval.manager': 1, 'approval.status': 1 });
 
 
-timesheetSchema.pre('save', function (next) {
-    // If status changed to Submitted and submittedDate isn't already set
-    if (this.isModified('status') && this.status === 'Submitted' && !this.submittedDate) {
-        this.submittedDate = new Date();
-    }
-    if (this.isModified('status') && ['Approved', 'Rejected'].includes(this.status) && !this.processedDate) {
-        this.processedDate = new Date();
-    }
+const TimeLog = mongoose.model('TimeLog', timeLogSchema);
 
-    if (this.isModified('status') && this.status !== 'Rejected') {
-        this.rejectionReason = undefined; // Use undefined to remove the field if not set
-    }
-    next();
-});
-
-
-timesheetSchema.pre('findOneAndUpdate', function (next) {
-    // 'this' refers to the query object
-    const update = this.getUpdate(); // Get the update operations, e.g., { $set: { status: 'Approved', ... } }
-
-    // Ensure $set is being used, as other operators might need different handling
-    if (!update.$set) {
-        return next();
-    }
-
-    const newStatus = update.$set.status; // Get the new status being set
-
-    // If status is being changed
-    if (newStatus) {
-        // Set submittedDate if status becomes Submitted and date isn't already being set
-        if (newStatus === 'Submitted' && !update.$set.hasOwnProperty('submittedDate')) {
-            update.$set.submittedDate = new Date();
-        }
-
-        // Set processedDate if status becomes Approved or Rejected and date isn't already being set
-        if (['Approved', 'Rejected'].includes(newStatus) && !update.$set.hasOwnProperty('processedDate')) {
-            update.$set.processedDate = new Date();
-            // NOTE: 'processedBy' must still be set explicitly in the controller's update call,
-            // as middleware doesn't have access to req.user here.
-        }
-
-        // If status is changing TO something other than 'Rejected'
-        if (newStatus !== 'Rejected') {
-            // If rejectionReason is not being explicitly set in this same update...
-            if (!update.$set.hasOwnProperty('rejectionReason')) {
-                // ...ensure it gets cleared using $unset
-                if (!update.$unset) update.$unset = {}; // Initialize $unset if needed
-                update.$unset.rejectionReason = ""; // Value for $unset doesn't matter
-            }
-            // Note: This doesn't prevent setting a reason when status is NOT Rejected.
-            // Schema validation handles requiring reason *when* status IS Rejected.
-        }
-    }
-
-    next(); // Continue with the update operation
-});
-
-const Timesheet = mongoose.model('Timesheet', timesheetSchema);
-
-export default Timesheet;
+export default TimeLog;

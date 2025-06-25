@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import Announcement from '../models/announcement.model.js';
 
-// Helper function for consistent error responses
+
 const handleServerError = (res, error, message = 'Server error') => {
     console.error(message, error);
     res.status(500).json({

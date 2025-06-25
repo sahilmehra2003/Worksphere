@@ -87,7 +87,7 @@ export const getAllEmployees = async (req, res) => {
     sort[sortField] = sortDirection === 'desc' ? -1 : 1;
 
     // Regular employees can only see basic info of other employees
-    const projection = req.user.role === "Admin" ? {} : {
+    const projection = req.user?.role === "Admin" ? {} : {
       name: 1,
       role: 1,
       department: 1,
@@ -153,17 +153,17 @@ export const createEmployee = async (req, res) => {
     }
 
     const {
-      name, email, password, 
+      name, email, password,
       phoneNumber, city, state, country,
-      department, position, role, salary, 
-      manager, 
-      googleId, 
-      isProfileComplete, 
-      employmentStatus,  
-      workingStatus,    
-      dateOfBirth,      
-      emergencyContact   
-      
+      department, position, role, salary,
+      manager,
+      googleId,
+      isProfileComplete,
+      employmentStatus,
+      workingStatus,
+      dateOfBirth,
+      emergencyContact
+
     } = req.body;
     // Enhanced Required Fields Check
     const requiredFields = ['name', 'email', 'phoneNumber', 'city', 'state', 'country', 'position', 'role', 'salary'];
@@ -202,7 +202,7 @@ export const createEmployee = async (req, res) => {
     // Check if email already exists
     const existingEmployee = await Employee.findOne({ email: email.toLowerCase() });
     if (existingEmployee) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         success: false,
         message: "Employee with this email already exists"
       });
@@ -222,23 +222,23 @@ export const createEmployee = async (req, res) => {
 
     const employeeData = {
       name,
-      email: email.toLowerCase(), 
-      password, 
+      email: email.toLowerCase(),
+      password,
       googleId,
       phoneNumber,
       city,
       state,
-      country: country.toUpperCase(), 
-      department, 
+      country: country.toUpperCase(),
+      department,
       position,
       manager: manager || null,
       role,
       salary: salaryData,
-      isProfileComplete: isProfileComplete !== undefined ? isProfileComplete : true, 
-      employmentStatus: employmentStatus || undefined, 
-      workingStatus: workingStatus || undefined,     
-      isVerified: false, 
-   
+      isProfileComplete: isProfileComplete !== undefined ? isProfileComplete : true,
+      employmentStatus: employmentStatus || undefined,
+      workingStatus: workingStatus || undefined,
+      isVerified: false,
+
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
       emergencyContact: emergencyContact || undefined
     };
@@ -247,20 +247,20 @@ export const createEmployee = async (req, res) => {
 
     const newEmployee = await Employee.create(employeeData);
 
-   
+
     if (newEmployee.department) {
       await Department.findByIdAndUpdate(
         newEmployee.department,
-        { $addToSet: { employees: newEmployee._id } } 
+        { $addToSet: { employees: newEmployee._id } }
       );
-     
+
     }
-   
+
 
     const populatedEmployee = await Employee.findById(newEmployee._id)
       .populate('department', 'name')
       .populate('manager', 'name email');
-   
+
 
     return res.status(201).json({ // 201 Created
       success: true,
@@ -281,7 +281,7 @@ export const createEmployee = async (req, res) => {
         errors: validationErrors
       });
     }
-    if (error.code === 11000) { 
+    if (error.code === 11000) {
       return res.status(409).json({
         success: false,
         message: "Duplicate value error. Email or Google ID might already exist.",
@@ -700,6 +700,102 @@ export const updateSalaryReviewStatus = async (req, res) => {
       success: false,
       message: 'Failed to update salary review status',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * @desc    Assign department heads as managers to employees based on their department
+ * @route   POST /api/employees/assign-department-heads-as-managers
+ * @access  Private (Admin/HR only)
+ */
+export const assignDepartmentHeadsAsManagers = async (req, res) => {
+  try {
+    // Only Admin and HR can perform this action
+    if (!['Admin', 'HR'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only Admin and HR can perform this action.'
+      });
+    }
+
+    // Get all departments with their department heads
+    const departments = await Department.find({
+      departmentHead: { $exists: true, $ne: null },
+      status: 'Active'
+    }).populate('departmentHead', '_id name email');
+
+    if (departments.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No departments found with assigned department heads.'
+      });
+    }
+
+    let totalUpdated = 0;
+    let totalSkipped = 0;
+    const results = [];
+
+    // Process each department
+    for (const department of departments) {
+      const departmentHeadId = department.departmentHead._id;
+      const departmentId = department._id;
+
+      // Find employees in this department who don't have a manager or have a different manager
+      const employeesToUpdate = await Employee.find({
+        department: departmentId,
+        $or: [
+          { manager: { $exists: false } },
+          { manager: null },
+          { manager: { $ne: departmentHeadId } }
+        ],
+        employmentStatus: 'working' // Only update active employees
+      });
+
+      if (employeesToUpdate.length > 0) {
+        // Update employees to set department head as their manager
+        const updateResult = await Employee.updateMany(
+          { _id: { $in: employeesToUpdate.map(emp => emp._id) } },
+          { manager: departmentHeadId }
+        );
+
+        totalUpdated += updateResult.modifiedCount;
+        totalSkipped += employeesToUpdate.length - updateResult.modifiedCount;
+
+        results.push({
+          department: department.name,
+          departmentHead: department.departmentHead.name,
+          employeesUpdated: updateResult.modifiedCount,
+          employeesSkipped: employeesToUpdate.length - updateResult.modifiedCount
+        });
+      } else {
+        results.push({
+          department: department.name,
+          departmentHead: department.departmentHead.name,
+          employeesUpdated: 0,
+          employeesSkipped: 0,
+          message: 'No employees found that need manager assignment'
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully assigned department heads as managers to ${totalUpdated} employees.`,
+      summary: {
+        totalUpdated,
+        totalSkipped,
+        departmentsProcessed: departments.length
+      },
+      details: results
+    });
+
+  } catch (error) {
+    console.error('Error assigning department heads as managers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while assigning department heads as managers.',
+      error: error.message
     });
   }
 };

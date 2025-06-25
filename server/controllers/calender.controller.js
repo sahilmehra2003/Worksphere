@@ -4,7 +4,7 @@ import CountryCalendar from "../models/calender.model.js";
 import { getHolidaysForCountry } from '../utility/getCountryHolidays.js';
 
 
-// --- Existing Upsert Function ---
+
 export const upsertCountryCalendar = async (req, res) => {
     try {
         const { country, weekends, year } = req.body;
@@ -102,8 +102,7 @@ export const upsertCountryCalendar = async (req, res) => {
     }
 };
 
-// --- Controller to Add a Single Holiday ---
-// Expected Route: POST /api/calendars/:countryCode/holidays (example)
+
 export const addHoliday = async (req, res) => {
     try {
         const { countryCode } = req.params;

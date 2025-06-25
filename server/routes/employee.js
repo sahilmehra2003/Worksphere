@@ -7,7 +7,8 @@ import {
     updateEmployee,
     updatePassword,
     setEmployeeInactive,
-    completeExistingUserProfile
+    completeExistingUserProfile,
+    assignDepartmentHeadsAsManagers
 } from "../controllers/employeeController.js";
 import { authN, isAdmin, isAdminOrEmployee } from "../middlewares/auth.js";
 import { checkPermission } from '../middlewares/permission.middleware.js'
@@ -40,5 +41,8 @@ router.patch('/change-password', authN, updatePassword);
 router.post('/employees/create', authN, isAdmin, createEmployee);
 router.put('/employees/:id', authN, isAdmin, updateEmployee);
 router.patch('/employees/setInactive/:id', authN, checkPermission(Permissions.MANAGE_EMPLOYEES), setEmployeeInactive);
+
+// Assign department heads as managers to employees
+router.post('/employees/assign-department-heads-as-managers', authN, isAdmin, assignDepartmentHeadsAsManagers);
 
 export default router;

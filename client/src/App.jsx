@@ -3,14 +3,11 @@ import { createTheme } from '@mui/material/styles';
 import { themeSettings } from './theme';
 import { useSelector } from 'react-redux';
 import { useMemo } from 'react';
-import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'; // Added RouterProvider here for clarity
-import Dashboard from './Pages/dashboard/Dashboard';
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
 import Layout from './Pages/Layout/Layout';
 import EmployeeData from './Pages/Employees/EmployeeData';
 import TransactionChart from './Pages/transaction/Transaction';
-import TransactionFilters from './components/TransactionFilters';
-import PaymentHistory from './components/PaymentHistory';
-import TransactionTags from './components/TransactionTags';
+import AddTransactionDetails from './components/AddTransactionDetails';
 import ClientGrid from './Pages/Client/Client';
 import Projects from './Pages/Projects/index';
 import LandingPage from './Pages/Landing Page/LandingPage';
@@ -19,6 +16,8 @@ import About from './Pages/About/About';
 import Features from './Pages/Features/Features';
 import Signup from './Pages/SignUp/Signup';
 import Login from './Pages/Login/Login';
+import ForgotPassword from './Pages/ForgotPassword/ForgotPassword';
+import ResetPassword from './Pages/ResetPassword/ResetPassword';
 import Contact from './Pages/Contact Us/Contact';
 import Protected from './components/Protected';
 import 'leaflet/dist/leaflet.css'
@@ -27,17 +26,23 @@ import DepartmentSlider from './Pages/Department/Department';
 import GeoLocation from './Pages/Geography/GeoLocation';
 import CompanyHolidayCalendar from './Pages/Leave Management/Calender/OrganisationCalender';
 import UserLeavePage from './Pages/Leave Management/UserLeavePage';
+import LeaveApproval from './Pages/Leave Management/LeaveApproval';
 import CompleteProfile from './Pages/Profile/CompleteProfile';
 import ViewProfile from './Pages/Profile/ViewProfile';
-import Timesheet from './Pages/Timesheet/index';
-
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import TaskPage from './Pages/Tasks/index';
 import Teams from './Pages/Teams/Teams';
 import ScrollbarStyles from './components/ScrollBarStylex';
+import ApprovalPage from './Pages/transaction/TransactionApproval';
+import RecurringTransactions from './Pages/transaction/RecurringTransaction';
+import TimeLog from './Pages/TimeLog/TimeLog';
+import BonusSystemPage from './Pages/Bonus System/BonusSystem';
+import Performance from './Pages/Performance/Performance';
+import ReviewCycleManagement from './Pages/Review Cycle/ReviewCycle';
+import GoalPage from './Pages/Goal/Goal';
+import SubscriptionPage from './Pages/Subscription/SubscriptionPage';
 
-// VVVVVV MOVED OUTSIDE THE COMPONENT VVVVVV
 const router = createBrowserRouter([
   {
     path: "/",
@@ -68,8 +73,20 @@ const router = createBrowserRouter([
         element: <Login />
       },
       {
+        path: "forgot-password",
+        element: <ForgotPassword />
+      },
+      {
+        path: "reset-password",
+        element: <ResetPassword />
+      },
+      {
         path: "contact",
         element: <Contact />
+      },
+      {
+        path: "subscribe",
+        element: <SubscriptionPage />
       }
     ]
   },
@@ -77,6 +94,10 @@ const router = createBrowserRouter([
     path: "/app",
     element: <Layout />,
     children: [
+      {
+        path: "",
+        element: <Navigate to="client" replace />
+      },
       {
         path: "complete-profile",
         element: (
@@ -94,10 +115,10 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "dashboard",
+        path: "client",
         element: (
           <Protected role="Admin">
-            <Dashboard />
+            <ClientGrid />
           </Protected>
         ),
       },
@@ -106,32 +127,24 @@ const router = createBrowserRouter([
         element: <EmployeeData />,
       },
       {
+        path: "performance",
+        element: <Performance />
+      },
+      {
         path: "transactions",
         element: <TransactionChart />,
       },
       {
-        path: "transaction-filters",
-        element: (
-          <Protected>
-            <TransactionFilters />
-          </Protected>
-        ),
+        path: "recurring-transactions",
+        element: <RecurringTransactions />
       },
       {
-        path: "payment-history",
-        element: (
-          <Protected>
-            <PaymentHistory />
-          </Protected>
-        ),
+        path: 'add-transactions',
+        element: <AddTransactionDetails />
       },
       {
-        path: "transaction-tags",
-        element: (
-          <Protected>
-            <TransactionTags />
-          </Protected>
-        ),
+        path: 'approve-transactions',
+        element: <ApprovalPage />
       },
       {
         path: "clients",
@@ -154,12 +167,16 @@ const router = createBrowserRouter([
         element: <CompanyHolidayCalendar />
       },
       {
-        path: 'Leave System',
+        path: 'leave-system',
         element: <UserLeavePage />
       },
       {
-        path: 'timesheet',
-        element: <Timesheet />
+        path: 'leave-approval',
+        element: <LeaveApproval />
+      },
+      {
+        path: 'timelog',
+        element: <TimeLog />
       },
       {
         path: 'tasks',
@@ -168,6 +185,18 @@ const router = createBrowserRouter([
       {
         path: 'teams',
         element: <Teams />
+      },
+      {
+        path: 'bonus-system',
+        element: <BonusSystemPage />
+      },
+      {
+        path: 'review-cycle',
+        element: <ReviewCycleManagement />
+      },
+      {
+        path: 'goal',
+        element: <GoalPage />
       }
     ],
   },
@@ -180,7 +209,7 @@ const router = createBrowserRouter([
     element: <Signup />,
   },
 ]);
-// ^^^^^^ MOVED OUTSIDE THE COMPONENT ^^^^^^
+
 
 function App() {
 

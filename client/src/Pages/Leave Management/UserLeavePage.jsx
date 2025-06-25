@@ -1,13 +1,14 @@
 // src/Pages/Leave Management/UserLeavePage.jsx
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import {
-    Box, Typography, useTheme, CircularProgress, Alert, Paper, Grid,
+    Box, Typography, useTheme, CircularProgress, Alert, Paper, Grid, Button,
+    Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText,
 } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
-
+import { Add as AddIcon } from '@mui/icons-material';
 
 import LeaveBalanceDisplay from '../../components/Leave/LeaveBalanceDisplay';
 import LeaveHistoryTable from '../../components/Leave/LeaveHistoryTable';
@@ -20,11 +21,13 @@ import {
     applyForLeave,
     cancelLeaveRequest, // Renamed in slice for clarity
     clearLeaveOperationStatus,
+    createLeaveBalancesForAllEmployees, // Add this import
 } from '../../redux/Slices/leaveSlice'; // Adjust path
 
 import { isNonWorkingDay, calculateWorkingDaysFrontend, isSameDate } from '../../utils/dateUtils';
 import { toast } from 'react-hot-toast';
 import FlexBetween from '../../components/FlexBetween';
+
 const UserLeavePage = () => {
     const theme = useTheme();
     const dispatch = useDispatch();
@@ -39,7 +42,6 @@ const UserLeavePage = () => {
         isLoadingBalance,
         isLoadingHistory,
         isLoadingCalendar,
-        isApplyingLeave,
         isCancellingLeave,
         cancellingLeaveId,
         errorBalance,
@@ -49,14 +51,19 @@ const UserLeavePage = () => {
         cancelLeaveSuccess,
         errorApplyingLeave, // For modal to potentially consume
         errorCancellingLeave, // For modal or general display
+        isCreatingLeaveBalances,
+        errorCreatingLeaveBalances,
+        createLeaveBalancesSuccess,
     } = useSelector((state) => state.leave);
 
     const employeeId = authUser?._id;
     const userCountry = authUser?.country; // Example: 'IN'
+    const userRole = authUser?.role; // For role-based button visibility
 
     // --- Local UI State for Modal ---
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [selectionInfo, setSelectionInfo] = useState(null); // For FullCalendar date selection
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false); // For confirmation dialog
 
     // --- Initial Data Fetch ---
     useEffect(() => {
@@ -81,6 +88,10 @@ const UserLeavePage = () => {
             toast.success('Leave request cancelled successfully!');
             dispatch(clearLeaveOperationStatus());
         }
+        if (createLeaveBalancesSuccess) {
+            toast.success('Leave balances created successfully for all employees!');
+            dispatch(clearLeaveOperationStatus());
+        }
         // Errors from apply/cancel are now in errorApplyingLeave / errorCancellingLeave
         // The modal can display errorApplyingLeave directly.
         // General page errors (errorBalance, errorHistory, errorCalendar) can be shown separately.
@@ -92,8 +103,12 @@ const UserLeavePage = () => {
             toast.error(`Cancel Failed: ${errorCancellingLeave}`);
             dispatch(clearLeaveOperationStatus());
         }
+        if (errorCreatingLeaveBalances) {
+            toast.error(`Create Leave Balances Failed: ${errorCreatingLeaveBalances}`);
+            dispatch(clearLeaveOperationStatus());
+        }
 
-    }, [applyLeaveSuccess, cancelLeaveSuccess, errorApplyingLeave, errorCancellingLeave, dispatch]);
+    }, [applyLeaveSuccess, cancelLeaveSuccess, createLeaveBalancesSuccess, errorApplyingLeave, errorCancellingLeave, errorCreatingLeaveBalances, dispatch]);
 
 
     const calendarEvents = useMemo(() => {
@@ -172,6 +187,19 @@ const UserLeavePage = () => {
         dispatch(cancelLeaveRequest(leaveId));
     }, [dispatch, isCancellingLeave]);
 
+    const handleCreateLeaveBalancesForAll = useCallback(() => {
+        setIsConfirmDialogOpen(true);
+    }, []);
+
+    const handleConfirmCreateLeaveBalances = useCallback(() => {
+        setIsConfirmDialogOpen(false);
+        dispatch(createLeaveBalancesForAllEmployees());
+    }, [dispatch]);
+
+    const handleCancelCreateLeaveBalances = useCallback(() => {
+        setIsConfirmDialogOpen(false);
+    }, []);
+
     if (!authUser) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
@@ -181,15 +209,37 @@ const UserLeavePage = () => {
         );
     }
 
-    const isLoadingAnyData = isLoadingBalance || isLoadingHistory || isLoadingCalendar;
-
     return (
         <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
             <FlexBetween mb={3}>
                 <Typography variant="h4" gutterBottom component="h1" sx={{ color: theme.palette.text.primary }}>
                     My Leave Dashboard
                 </Typography>
-               
+                {/* Admin/HR Button to create leave balances for all employees */}
+                {['Admin', 'HR'].includes(userRole) && (
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleCreateLeaveBalancesForAll}
+                        disabled={isCreatingLeaveBalances}
+                        sx={{
+                            backgroundColor: theme.palette.primary.main,
+                            color: theme.palette.primary.contrastText,
+                            '&:hover': {
+                                backgroundColor: theme.palette.primary.dark,
+                            },
+                        }}
+                    >
+                        {isCreatingLeaveBalances ? (
+                            <>
+                                <CircularProgress size={16} sx={{ mr: 1 }} />
+                                Creating...
+                            </>
+                        ) : (
+                            'Create Leave Balances for All'
+                        )}
+                    </Button>
+                )}
             </FlexBetween>
 
 
@@ -266,8 +316,40 @@ const UserLeavePage = () => {
                 companyCalendar={companyCalendar}
                 calculateWorkingDays={calculateWorkingDaysFrontend}
                 isNonWorkingDay={isNonWorkingDay}
-            // Applying leave loading state is now directly from Redux: `isApplyingLeave`
             />
+
+            {/* Confirmation Dialog for Creating Leave Balances */}
+            <Dialog
+                open={isConfirmDialogOpen}
+                onClose={handleCancelCreateLeaveBalances}
+                aria-labelledby="confirm-dialog-title"
+                aria-describedby="confirm-dialog-description"
+            >
+                <DialogTitle id="confirm-dialog-title">
+                    Create Leave Balances for All Employees
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="confirm-dialog-description">
+                        This action will create leave balance records for all employees who don&apos;t currently have one.
+                        Each employee will receive the default leave quotas as defined in the system.
+                        <br /><br />
+                        Are you sure you want to proceed?
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCancelCreateLeaveBalances} color="primary">
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleConfirmCreateLeaveBalances}
+                        color="primary"
+                        variant="contained"
+                        autoFocus
+                    >
+                        Confirm
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

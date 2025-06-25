@@ -48,7 +48,7 @@ const Login = () => {
       if (!user.isProfileComplete) {
         navigate("/app/complete-profile");
       } else {
-        navigate("/app/dashboard");
+        navigate("/app/client");
       }
     }
   }, [isAuthenticated, user, navigate, loginToastShown]);
@@ -60,6 +60,12 @@ const Login = () => {
       dispatch(clearAuthError());
     }
   }, [error, dispatch]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setLoginToastShown(false);
+    }
+  }, [isAuthenticated]);
 
   return (
     <Box
@@ -180,6 +186,23 @@ const Login = () => {
               >
                 Continue with Google
               </Button>
+
+              <Box sx={{ textAlign: 'center', marginTop: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Not registered yet?{' '}
+                  <Link
+                    to="/signup"
+                    style={{
+                      textDecoration: 'none',
+                      color: '#1976d2',
+                      fontWeight: 'bold',
+
+                    }}
+                  >
+                    Register Here
+                  </Link>
+                </Typography>
+              </Box>
             </form>
           </Grid>
 

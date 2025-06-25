@@ -13,7 +13,7 @@ const initialState = {
 // Async thunks
 export const getAllTeams = createAsyncThunk(
     'projectTeam/getAllTeams',
-    async (_, { rejectWithValue, dispatch }) => {
+    async (_, { rejectWithValue }) => {
         try {
             //   dispatch(projectTeamSlice.actions.clearError()); 
             console.log('[Slice/getAllTeams] Fetching all teams...');
@@ -42,7 +42,7 @@ export const getAllTeams = createAsyncThunk(
 // Example for createTeam:
 export const createTeam = createAsyncThunk(
     'projectTeam/createTeam',
-    async (teamData, { rejectWithValue, dispatch }) => {
+    async (teamData, { rejectWithValue }) => {
         try {
             const response = await apiConnector('POST', TEAM_ENDPOINTS.CREATE_TEAM_API, teamData);
             const backendResponse = response.data;
@@ -78,7 +78,7 @@ export const getTeam = createAsyncThunk(
 // --- updateTeam ---
 export const updateTeam = createAsyncThunk(
     'projectTeam/updateTeam',
-    async ({ teamId, teamData }, { rejectWithValue, dispatch }) => {
+    async ({ teamId, teamData }, { rejectWithValue }) => {
         try {
             const response = await apiConnector('PUT', TEAM_ENDPOINTS.UPDATE_TEAM_API(teamId), teamData);
             const backendResponse = response.data;
@@ -96,7 +96,7 @@ export const updateTeam = createAsyncThunk(
 // --- deleteTeam ---
 export const deleteTeam = createAsyncThunk(
     'projectTeam/deleteTeam',
-    async (teamId, { rejectWithValue, dispatch }) => {
+    async (teamId, { rejectWithValue }) => {
         try {
             const response = await apiConnector('DELETE', TEAM_ENDPOINTS.DELETE_TEAM_API(teamId));
             const backendResponse = response.data;
@@ -114,7 +114,7 @@ export const deleteTeam = createAsyncThunk(
 // --- addTeamMember ---
 export const addTeamMember = createAsyncThunk(
     'projectTeam/addTeamMember',
-    async ({ teamId, memberId }, { rejectWithValue, dispatch }) => {
+    async ({ teamId, memberId }, { rejectWithValue }) => {
         try {
             const response = await apiConnector('POST', TEAM_ENDPOINTS.ADD_TEAM_MEMBER_API(teamId), { memberId });
             const backendResponse = response.data;
@@ -133,7 +133,7 @@ export const addTeamMember = createAsyncThunk(
 // --- removeTeamMember ---
 export const removeTeamMember = createAsyncThunk(
     'projectTeam/removeTeamMember',
-    async ({ teamId, memberId }, { rejectWithValue, dispatch }) => {
+    async ({ teamId, memberId }, { rejectWithValue }) => {
         try {
             const response = await apiConnector('DELETE', TEAM_ENDPOINTS.REMOVE_TEAM_MEMBER_API(teamId), { memberId });
             const backendResponse = response.data;
@@ -181,11 +181,13 @@ const projectTeamSlice = createSlice({
                 state.loading = false;
                 state.teams = action.payload; // This is the crucial state update
 
-                try {
-                    console.log('[Slice/getAllTeams.fulfilled] state.teams AFTER assignment:', current(state.teams));
-                } catch (e) {
-                    console.error('[Slice/getAllTeams.fulfilled] Error logging state.teams with current():', e);
-                    console.log('[Slice/getAllTeams.fulfilled] state.teams AFTER assignment (raw):', state.teams);
+                if (state.teams) {
+                    try {
+                        console.log('[Slice/getAllTeams.fulfilled] state.teams AFTER assignment:', current(state.teams));
+                    } catch (e) {
+                        console.error('[Slice/getAllTeams.fulfilled] Error logging state.teams with current():', e);
+                        console.log('[Slice/getAllTeams.fulfilled] state.teams AFTER assignment (raw):', state.teams);
+                    }
                 }
                 console.log('--------------------------------------------------------------------');
                 // ------ VITAL DEBUGGING LOGS END ------
@@ -206,7 +208,14 @@ const projectTeamSlice = createSlice({
             .addCase(getTeam.fulfilled, (state, action) => {
                 state.loading = false;
                 state.currentTeam = action.payload; // action.payload is the team object
-                console.log('[Slice/getTeam.fulfilled] Current team updated:', current(state.currentTeam));
+                if (state.currentTeam) {
+                    try {
+                        console.log('[Slice/getTeam.fulfilled] Current team updated:', current(state.currentTeam));
+                    } catch (e) {
+                        console.error('[Slice/getTeam.fulfilled] Error logging state.currentTeam with current():', e);
+                        console.log('[Slice/getTeam.fulfilled] state.currentTeam AFTER assignment (raw):', state.currentTeam);
+                    }
+                }
             })
             .addCase(getTeam.rejected, (state, action) => {
                 state.loading = false;
@@ -285,7 +294,14 @@ const projectTeamSlice = createSlice({
                     if (state.currentTeam?._id === updatedTeam._id) {
                         state.currentTeam = updatedTeam;
                     }
-                    console.log(`[Slice/${action.type}] Team updated. Teams:`, current(state.teams), "Current:", current(state.currentTeam));
+                    if (state.teams) {
+                        try {
+                            console.log(`[Slice/${action.type}] Team updated. Teams:`, current(state.teams), "Current:", state.currentTeam ? current(state.currentTeam) : null);
+                        } catch (e) {
+                            console.error(`[Slice/${action.type}] Error logging state.teams or state.currentTeam with current():`, e);
+                            console.log(`[Slice/${action.type}] state.teams AFTER assignment (raw):`, state.teams, "Current:", state.currentTeam);
+                        }
+                    }
                 }
             );
     }

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useDispatch, useSelector } from 'react-redux';
 import { useForm, Controller } from 'react-hook-form';
@@ -89,8 +89,8 @@ const ClientModal = ({ open, onClose, client = null }) => {
                     location: client.location || '',
                     clientCreationDate: client.clientCreationDate && !isNaN(new Date(client.clientCreationDate)) ? new Date(client.clientCreationDate) : null,
                     clientFinishDate: client.clientFinishDate && !isNaN(new Date(client.clientFinishDate)) ? new Date(client.clientFinishDate) : null,
-                    project: typeof client.project === 'object' && client.project !== null ? client.project._id : (client.project || ''),
-                    department: typeof client.department === 'object' && client.department !== null ? client.department._id : (client.department || ''),
+                    project: (typeof client.project === 'object' && client.project !== null) ? client.project._id : (client.project ?? ''),
+                    department: (typeof client.department === 'object' && client.department !== null) ? client.department._id : (client.department ?? ''),
                     status: client.status !== undefined ? client.status : true,
                     paymentAfterCompletion: client.paymentAfterCompletion || null,
                 });
@@ -277,7 +277,7 @@ const ClientModal = ({ open, onClose, client = null }) => {
                                     render={({ field }) => (
                                         <TextField
                                             {...field}
-                                            variant='body1'
+                                            variant='outlined'
                                             select
                                             label="Client Status"
                                             value={field.value ? 'true' : 'false'}
@@ -330,8 +330,18 @@ ClientModal.propTypes = {
         location: PropTypes.string,
         clientCreationDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
         clientFinishDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
-        project: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
-        department: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
+        project: PropTypes.oneOfType([
+            PropTypes.string,
+            PropTypes.object,
+            PropTypes.oneOf([null]),
+            PropTypes.oneOf([undefined])
+        ]),
+        department: PropTypes.oneOfType([
+            PropTypes.string,
+            PropTypes.object,
+            PropTypes.oneOf([null]),
+            PropTypes.oneOf([undefined])
+        ]),
         status: PropTypes.bool,
         paymentAfterCompletion: PropTypes.number,
     }),

@@ -11,6 +11,7 @@ import { sendMail } from '../utility/sendEmail.util.js';
 import { otpEmailTemplate } from '../utility/_email_templates/verificationEmail.template.js';
 import { welcomeEmailTemplate } from '../utility/_email_templates/welcomeEmail.template.js';
 import { resetPasswordTemplate } from '../utility/_email_templates/passwordResetTemplate.template.js';
+import { rolePermissions } from '../config/permission.config.js';
 
 dotenv.config();
 
@@ -275,7 +276,7 @@ export const login = async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? (process.env.COOKIE_SAMESITE_NONE_SECURE === 'true' ? 'None' : 'Lax') : 'Lax', // ensure COOKIE_SAMESITE_NONE_SECURE is evaluated as boolean if string
-            path: '/' 
+            path: '/'
         };
 
         const accessTokenCookieOptions = {
@@ -302,7 +303,8 @@ export const login = async (req, res) => {
                     email: employee.email,
                     role: employee.role,
                     isProfileComplete: employee.isProfileComplete,
-                    isVerified: employee.isVerified
+                    isVerified: employee.isVerified,
+                    permissions: rolePermissions[employee.role] || []
                 }
             });
 
@@ -401,7 +403,7 @@ export const googleAuthenticationCallback = async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
-            path: '/' 
+            path: '/'
         };
 
         res.cookie('token', accessToken, cookieOptions);
@@ -562,5 +564,29 @@ export const resetPassword = async (req, res) => {
             message: "Server error resetting password.",
             error: error.message
         });
+    }
+};
+
+export const logout = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (userId) {
+            await Employee.findByIdAndUpdate(userId, {
+                $unset: { refreshToken: "", refreshTokenExpiry: "" }
+            });
+        }
+        res.cookie('token', '', {
+            httpOnly: true,
+            expires: new Date(0),
+            path: '/',
+        });
+        res.cookie('refreshToken', '', {
+            httpOnly: true,
+            expires: new Date(0),
+            path: '/',
+        });
+        return res.status(200).json({ success: true, message: 'Logged out successfully.' });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Logout failed.', error: error.message });
     }
 };

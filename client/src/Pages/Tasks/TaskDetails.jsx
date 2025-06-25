@@ -74,7 +74,7 @@ const TaskDetails = ({ open, onClose, task }) => {
                         </Box>
                     </Paper>
 
-                    {/* Task History */}
+                    
                     {task.reopenHistory && task.reopenHistory.length > 0 && (
                         <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default' }}>
                             <Typography variant="h6" gutterBottom>Reopen History</Typography>

@@ -1,194 +1,387 @@
-// controllers/attendanceController.js
+import Attendance from '../models/attendance.model.js';
+import Employee from '../models/employeeSchema.js';
+import mongoose from 'mongoose';
 
-import TimeLog from '../models/timeLog.model.js';
 
-
-
-export const clockIn = async (req, res) => {
+export const markCheckIn = async (req, res) => {
     try {
-        const employeeId = req.user._id; 
+        const employeeId = req.user._id;
 
-        // 1. Check if already clocked in
-        const existingOpenLog = await TimeLog.findOne({
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const existingAttendance = await Attendance.findOne({
             employee: employeeId,
-            status: 'ClockedIn'
+            date: { $gte: today }
         });
 
-        if (existingOpenLog) {
-            return res.status(400).json({
-                success: false,
-                message: `You are already clocked in since ${existingOpenLog.clockInTime.toLocaleString()}. Please clock out first.`
-            });
+        if (existingAttendance) {
+            return res.status(400).json({ success: false, error: 'You have already checked in today.' });
         }
 
-        // 2. Create new clock-in record
-        const clockInTime = new Date();
-        const newLogData = {
+        const now = new Date();
+        const checkInHour = now.getHours();
+        const checkInMinute = now.getMinutes();
+        const currentTimeInMinutes = checkInHour * 60 + checkInMinute;
+
+        const earliestCheckInTime = 9 * 60 + 30;  
+        const latestCheckInTime = 11 * 60 + 30; 
+
+        if (currentTimeInMinutes < earliestCheckInTime) {
+            return res.status(400).json({ success: false, error: 'Check-in is only allowed after 9:30 AM.' });
+        }
+
+        let isHalfDay = false;
+        if (currentTimeInMinutes > latestCheckInTime) {
+            isHalfDay = true;
+        }
+
+        const newAttendance = new Attendance({
             employee: employeeId,
-            clockInTime: clockInTime,
-            status: 'ClockedIn', // Schema default, but explicit here
-            ipAddressIn: req.ip // Capture IP address from request
-            // workDate will be set by pre-save hook based on clockInTime
-        };
+            date: today,
+            checkInTime: now,
+            isHalfDay: isHalfDay,
+            status: 'Present',
+            managerApproval: {
+                manager: req.user.manager
+            }
+        });
 
-        const newLog = await TimeLog.create(newLogData);
+        await newAttendance.save();
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
-            message: 'Successfully clocked in.',
-            data: newLog
+            message: `Checked in successfully.${isHalfDay ? ' Note: Your check-in was marked as a half-day due to late arrival.' : ''}`,
+            data: newAttendance
         });
 
     } catch (error) {
-        console.error("Error during clock-in:", error);
-        res.status(500).json({ success: false, message: 'Server error during clock-in.', error: error.message });
+        console.error("Error during check-in:", error);
+        return res.status(500).json({ success: false, error: 'Server error during check-in.' });
     }
 };
 
 
-export const clockOut = async (req, res) => {
+export const markCheckOut = async (req, res) => {
     try {
         const employeeId = req.user._id;
-        const { notes } = req.body; // Optional notes on clock-out
 
-        // 1. Find the most recent open clock-in record for this employee
-        const logToClose = await TimeLog.findOne({
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const attendanceRecord = await Attendance.findOne({
             employee: employeeId,
-            status: 'ClockedIn'
-        }).sort({ clockInTime: -1 }); // Get the latest one if multiple somehow exist
-
-        if (!logToClose) {
-            return res.status(400).json({
-                success: false,
-                message: "Cannot clock out: You are not currently clocked in."
-            });
-        }
-
-        // 2. Calculate duration and update record
-        const clockOutTime = new Date();
-        const durationMillis = clockOutTime.getTime() - logToClose.clockInTime.getTime();
-        // Ensure duration is non-negative (shouldn't happen normally)
-        const durationMinutes = Math.max(0, Math.round(durationMillis / (1000 * 60)));
-
-        // Update the found log entry
-        logToClose.clockOutTime = clockOutTime;
-        logToClose.durationMinutes = durationMinutes;
-        logToClose.status = 'ClockedOut';
-        logToClose.ipAddressOut = req.ip; // Capture clock-out IP
-        if (notes) {
-            logToClose.notes = notes;
-        }
-
-        const updatedLog = await logToClose.save(); // Use save to trigger any potential hooks
-
-        res.status(200).json({
-            success: true,
-            message: 'Successfully clocked out.',
-            data: updatedLog
+            date: { $gte: today }
         });
 
-    } catch (error) {
-        console.error("Error during clock-out:", error);
-        if (error.name === 'ValidationError') {
-             return res.status(400).json({ success: false, message: 'Validation Error', error: error.message });
+        if (!attendanceRecord) {
+            return res.status(404).json({ success: false, error: "You have not checked in yet today." });
         }
-        res.status(500).json({ success: false, message: 'Server error during clock-out.', error: error.message });
-    }
-};
 
+        if (attendanceRecord.checkOutTime) {
+            return res.status(400).json({ success: false, error: "You have already checked out today." });
+        }
 
-export const getCurrentStatus = async (req, res) => {
-    try {
-        const employeeId = req.user._id;
+        const now = new Date();
+        attendanceRecord.checkOutTime = now;
 
-        // Find the latest 'ClockedIn' entry for the user
-        const currentClockIn = await TimeLog.findOne({
-            employee: employeeId,
-            status: 'ClockedIn'
-        }).sort({ clockInTime: -1 }).lean(); // Get the most recent active clock-in
+        const diffInMs = now - attendanceRecord.checkInTime;
+        const totalHours = diffInMs / (1000 * 60 * 60);
+        attendanceRecord.totalHours = parseFloat(totalHours.toFixed(2));
 
-        if (currentClockIn) {
-            // User is currently clocked in
-            res.status(200).json({
-                success: true,
-                status: 'ClockedIn',
-                clockInTime: currentClockIn.clockInTime,
-                logId: currentClockIn._id // ID of the current open log
-            });
+        const requiredHours = attendanceRecord.isHalfDay ? 5 : 9;
+        if (attendanceRecord.totalHours < requiredHours) {
+            attendanceRecord.status = 'Shortfall';
+            attendanceRecord.managerApproval.status = 'Pending';
         } else {
-            // User is not clocked in, find the last clock-out time for context (optional)
-            const lastLog = await TimeLog.findOne({ employee: employeeId })
-                                      .sort({ createdAt: -1 }) // Find the absolute latest record
-                                      .lean();
-            res.status(200).json({
-                success: true,
-                status: 'ClockedOut',
-                lastClockOutTime: lastLog?.clockOutTime || null, // Provide last clock-out time if available
-                lastLogId: lastLog?._id || null
-            });
+            attendanceRecord.finalOutcome = attendanceRecord.isHalfDay ? 'Half Day' : 'Full Day';
+            attendanceRecord.status = 'Present'; // Mark as present if hours are met
         }
+
+        await attendanceRecord.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `Checked out successfully. You worked ${attendanceRecord.totalHours} hours today.`,
+            data: attendanceRecord
+        });
+
+    } catch (error) {
+        console.error("Error during check-out:", error);
+        return res.status(500).json({ success: false, error: 'Server error during check-out.' });
+    }
+};
+
+
+
+export const getAttendanceForEmployee = async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+        const { startDate, endDate } = req.query;
+
+        const query = { employee: employeeId, isDelete: { $ne: true } };
+        if (startDate && endDate) {
+            query.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
+        }
+
+        const records = await Attendance.find(query).sort({ date: -1 });
+
+        return res.status(200).json({
+            success: true,
+            data: records
+        });
+
+    } catch (error) {
+        console.error("Error fetching attendance records:", error);
+        return res.status(500).json({ success: false, error: 'Server error while fetching records.' });
+    }
+};
+
+export const getCurrentAttendanceStatus = async (req, res) => {
+    try {
+        const employeeId = req.user._id;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const attendanceRecord = await Attendance.findOne({
+            employee: employeeId,
+            date: { $gte: today },
+            isDelete: { $ne: true }
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: attendanceRecord || null
+        });
 
     } catch (error) {
         console.error("Error fetching current attendance status:", error);
-        res.status(500).json({ success: false, message: 'Server error fetching status.', error: error.message });
+        return res.status(500).json({ success: false, error: 'Server error while fetching current attendance status.' });
     }
 };
 
 
-export const getAttendanceHistory = async (req, res) => {
+export const getPendingApprovals = async (req, res) => {
     try {
-        const employeeId = req.user._id;
+        const managerId = req.user._id;
 
-        // --- Filtering ---
-        const query = { employee: employeeId }; // Base query for the user
-        // Date range filtering (example: using workDate)
-        if (req.query.startDate) {
-            const start = new Date(req.query.startDate);
-             if (!isNaN(start.getTime())) {
-                 // Ensure we compare against the start of the day UTC
-                 query.workDate = { ...query.workDate, $gte: new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate())) };
-             }
-        }
-         if (req.query.endDate) {
-            const end = new Date(req.query.endDate);
-             if (!isNaN(end.getTime())) {
-                 // Ensure we compare against the end of the day UTC
-                 const endOfDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate(), 23, 59, 59, 999));
-                 query.workDate = { ...query.workDate, $lte: endOfDay };
-             }
-        }
+        const records = await Attendance.find({
+            'managerApproval.manager': managerId,
+            'managerApproval.status': 'Pending',
+            status: 'Shortfall'
+        }).populate('employee', 'name employeeId');
 
-        // --- Pagination ---
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 15; // Default 15 records per page
-        const skip = (page - 1) * limit;
-
-        // --- Sorting --- (most recent first)
-        const sort = { workDate: -1, clockInTime: -1 };
-
-        // --- Database Query ---
-        const logs = await TimeLog.find(query)
-            .sort(sort)
-            .skip(skip)
-            .limit(limit)
-            .lean(); // Use lean for read-only list
-
-        // Get total count for pagination
-        const totalLogs = await TimeLog.countDocuments(query);
-
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            count: logs.length,
-            pagination: {
-                currentPage: page,
-                totalPages: Math.ceil(totalLogs / limit),
-                totalRecords: totalLogs
-            },
-            data: logs
+            data: records
         });
 
     } catch (error) {
-        console.error("Error fetching attendance history:", error);
-        res.status(500).json({ success: false, message: 'Server error fetching history.', error: error.message });
+        console.error("Error fetching pending approvals:", error);
+        return res.status(500).json({ success: false, error: 'Server error while fetching pending approvals.' });
+    }
+};
+
+
+
+export const approveOrRejectShortfall = async (req, res) => {
+    try {
+        const { attendanceId } = req.params;
+        const { status, comment } = req.body; // status should be 'Approved' or 'Rejected'
+        const approverId = req.user._id;
+
+        const record = await Attendance.findById(attendanceId);
+        if (!record) {
+            return res.status(404).json({ success: false, error: "Attendance record not found." });
+        }
+
+        record.managerApproval.status = status;
+        record.managerApproval.comment = comment;
+        record.managerApproval.approvedAt = new Date();
+
+        if (status === 'Approved') {
+            record.status = 'Present'; 
+            record.finalOutcome = record.isHalfDay ? 'Half Day' : 'Full Day'; 
+        } else { 
+            record.status = 'Disputed'; 
+            record.finalOutcome = 'Unpaid Leave';
+        }
+
+        await record.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `Attendance record has been ${status.toLowerCase()}.`,
+            data: record
+        });
+
+    } catch (error) {
+        console.error("Error approving/rejecting shortfall:", error);
+        return res.status(500).json({ success: false, error: "Server error while processing approval." });
+    }
+};
+
+
+
+export const flagIssueToHR = async (req, res) => {
+    try {
+        const { attendanceId } = req.params;
+        const { notes } = req.body;
+
+        const record = await Attendance.findOneAndUpdate(
+            { _id: attendanceId, employee: req.user._id, 'managerApproval.status': 'Rejected' },
+            {
+                status: 'Escalated to HR',
+                'hrApproval.status': 'Pending',
+                notes: `Dispute from employee: ${notes}` // Append to any existing notes
+            },
+            { new: true }
+        );
+
+        if (!record) {
+            return res.status(404).json({ success: false, error: "Could not find a rejected attendance record to flag." });
+        }
+
+        // Here you would typically trigger a notification to the HR department
+
+        return res.status(200).json({
+            success: true,
+            message: "Issue has been flagged for HR review.",
+            data: record
+        });
+
+    } catch (error) {
+        console.error("Error flagging issue to HR:", error);
+        return res.status(500).json({ success: false, error: "Server error while flagging issue." });
+    }
+};
+
+
+export const updateAttendanceByAdmin = async (req, res) => {
+    try {
+        const { attendanceId } = req.params;
+        const updateData = req.body;
+
+        const updatedRecord = await Attendance.findByIdAndUpdate(
+            attendanceId,
+            updateData,
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedRecord) {
+            return res.status(404).json({ success: false, error: "Attendance record not found." });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Attendance record updated successfully.",
+            data: updatedRecord
+        });
+
+    } catch (error) {
+        console.error("Error updating attendance record:", error);
+        return res.status(500).json({ success: false, error: "Server error while updating record." });
+    }
+};
+
+export const requestHalfDay = async (req, res) => {
+    try {
+        const employeeId = req.user._id;
+        const { date, notes } = req.body;
+
+        // Validate required fields
+        if (!date) {
+            return res.status(400).json({
+                success: false,
+                error: "Date is required for half-day requests."
+            });
+        }
+
+        const requestDate = new Date(date);
+        requestDate.setHours(0, 0, 0, 0);
+
+        // Prevent creating a half-day request if a record for that day already exists
+        const existingAttendance = await Attendance.findOne({
+            employee: employeeId,
+            date: { $gte: requestDate }
+        });
+
+        if (existingAttendance) {
+            return res.status(400).json({ success: false, error: 'An attendance record for this day already exists. Please use the "Request Correction" feature instead.' });
+        }
+
+        const newHalfDayRequest = new Attendance({
+            employee: employeeId,
+            date: requestDate,
+            isHalfDay: true,
+            status: 'Pending Approval', // Goes straight to manager
+            notes,
+            managerApproval: {
+                manager: req.user.manager,
+                status: 'Pending'
+            }
+        });
+
+        await newHalfDayRequest.save();
+
+        return res.status(201).json({
+            success: true,
+            message: 'Half-day request submitted successfully for manager approval.',
+            data: newHalfDayRequest
+        });
+
+    } catch (error) {
+        console.error("Error requesting half-day:", error);
+        return res.status(500).json({ success: false, error: 'Server error while requesting half-day.' });
+    }
+};
+
+export const requestCorrection = async (req, res) => {
+    try {
+        const { attendaceId } = req.params;
+        const { type, reason, checkInTime, checkOutTime } = req.body;
+        const employeeId = req.user._id;
+
+        // Validate required fields
+        if (!type || !reason) {
+            return res.status(400).json({
+                success: false,
+                error: "Type and reason are required for correction requests."
+            });
+        }
+
+        const record = await Attendance.findOne({ _id: attendaceId, employee: employeeId });
+        console.log("record: ", record)
+        if (!record) {
+            return res.status(404).json({ success: false, error: "Attendance record not found or you do not have permission to edit it." });
+        }
+
+        // Populate the correction request sub-document
+        record.correctionRequest = {
+            type,
+            requestedData: {
+                checkInTime: checkInTime ? new Date(checkInTime) : record.checkInTime,
+                checkOutTime: checkOutTime ? new Date(checkOutTime) : record.checkOutTime,
+            },
+            reason,
+            status: 'Pending'
+        };
+
+        // Update the main status to indicate it needs attention
+        record.status = 'Pending Approval';
+        record.managerApproval.status = 'Pending';
+
+        await record.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Correction request submitted successfully.',
+            data: record
+        });
+
+    } catch (error) {
+        console.error("Error requesting correction:", error);
+        return res.status(500).json({ success: false, error: 'Server error while requesting correction.' });
     }
 };

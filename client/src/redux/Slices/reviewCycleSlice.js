@@ -1,17 +1,17 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { apiConnector } from '../../services/apiConnector'; 
-import { REVIEW_CYCLE_ENDPOINTS } from '../../services/apiEndpoints'; 
+import { apiConnector } from '../../services/apiConnector';
+import { REVIEW_CYCLE_ENDPOINTS } from '../../services/apiEndpoints';
+import { toast } from 'react-hot-toast';
 
 const initialState = {
-    reviewCycles: [], // Array to store the list of all review cycles
-    currentReviewCycle: null, // To store details of a single review cycle
+    reviewCycles: [],
+    currentReviewCycle: null,
     loadingList: false,
     loadingDetails: false,
-    operationLoading: false, // For CUD and activate operations
+    operationLoading: false,
     error: null,
     operationError: null,
     operationSuccess: false,
-    // Add pagination if your getAllReviewCycles backend supports it
     pagination: {
         currentPage: 1,
         totalPages: 1,
@@ -21,127 +21,133 @@ const initialState = {
 
 // --- Async Thunks ---
 
-// 1. Fetch All Review Cycles
+// 1. Fetch All Review Cycles (with pagination)
 export const fetchAllReviewCycles = createAsyncThunk(
     'reviewCycle/fetchAll',
-    async ({ page = 1, limit = 10, filters = {} } = {}, { rejectWithValue }) => { // Added pagination/filters
+    async ({ page = 1, limit = 10, filters = {}, token }, { rejectWithValue }) => {
         try {
             const params = { page, limit, ...filters };
-            const response = await apiConnector('GET', REVIEW_CYCLE_ENDPOINTS.GET_ALL_REVIEW_CYCLES_API, null, null, params);
-            // Backend's getAllReviewCycles returns { success, count, pagination, data: cycles }
-            if (response.data && response.data.success) {
-                return response.data; // Contains data (cycles array) and pagination
+            const response = await apiConnector('GET', REVIEW_CYCLE_ENDPOINTS.GET_ALL_REVIEW_CYCLES_API, null, { Authorization: `Bearer ${token}` }, params);
+            if (response.data?.success) {
+                return response.data;
             }
             return rejectWithValue(response.data?.message || 'Failed to fetch review cycles.');
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to fetch review cycles.';
+            const message = error.response?.data?.message || 'Could not fetch review cycles.';
+            toast.error(message);
             return rejectWithValue(message);
         }
     }
 );
 
-// 2. Fetch Review Cycle By ID
+// 2. Fetch a single Review Cycle By ID
 export const fetchReviewCycleById = createAsyncThunk(
     'reviewCycle/fetchById',
-    async (cycleId, { rejectWithValue }) => {
+    async ({ cycleId, token }, { rejectWithValue }) => {
         try {
-            const response = await apiConnector('GET', REVIEW_CYCLE_ENDPOINTS.GET_REVIEW_CYCLE_BY_ID_API(cycleId));
-            // Backend's getReviewCycleById returns { success, data: cycle }
-            if (response.data && response.data.success) {
+            const response = await apiConnector('GET', REVIEW_CYCLE_ENDPOINTS.GET_REVIEW_CYCLE_BY_ID_API(cycleId), null, { Authorization: `Bearer ${token}` });
+            if (response.data?.success) {
                 return response.data.data;
             }
             return rejectWithValue(response.data?.message || 'Review cycle not found.');
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to fetch review cycle details.';
+            const message = error.response?.data?.message || 'Could not fetch review cycle details.';
+            toast.error(message);
             return rejectWithValue(message);
         }
     }
 );
 
-// 3. Create Review Cycle
+// 3. Create a new Review Cycle
 export const createReviewCycle = createAsyncThunk(
     'reviewCycle/create',
-    async (cycleData, { dispatch, rejectWithValue }) => {
+    async ({ cycleData, token }, { rejectWithValue }) => {
+        const toastId = toast.loading("Creating cycle...");
         try {
-            const response = await apiConnector('POST', REVIEW_CYCLE_ENDPOINTS.CREATE_REVIEW_CYCLE_API, cycleData);
-            // Backend's createReviewCycle returns { success, message, data: newCycle }
+            const response = await apiConnector('POST', REVIEW_CYCLE_ENDPOINTS.CREATE_REVIEW_CYCLE_API, cycleData, { Authorization: `Bearer ${token}` });
             if (!response.data.success) {
-                return rejectWithValue(response.data.message || 'Failed to create review cycle.');
+                return rejectWithValue(response.data.message);
             }
-            dispatch(fetchAllReviewCycles()); // Re-fetch all review cycles to update the list
-            return response.data.data; // Return the newly created cycle
+            toast.success("Review Cycle created successfully!");
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to create review cycle.';
+            const message = error.response?.data?.message || 'Failed to create review cycle.';
+            toast.error(message);
             return rejectWithValue(message);
+        } finally {
+            toast.dismiss(toastId);
         }
     }
 );
 
-// 4. Update Review Cycle
+// 4. Update a Review Cycle
 export const updateReviewCycle = createAsyncThunk(
     'reviewCycle/update',
-    async ({ cycleId, updatedData }, { dispatch, rejectWithValue }) => {
+    async ({ cycleId, updatedData, token }, { rejectWithValue }) => {
+        const toastId = toast.loading("Updating...");
         try {
-            const response = await apiConnector('PUT', REVIEW_CYCLE_ENDPOINTS.UPDATE_REVIEW_CYCLE_API(cycleId), updatedData);
-            // Backend returns { success, message, data: updatedCycle }
+            const response = await apiConnector('PUT', REVIEW_CYCLE_ENDPOINTS.UPDATE_REVIEW_CYCLE_API(cycleId), updatedData, { Authorization: `Bearer ${token}` });
             if (!response.data.success) {
-                return rejectWithValue(response.data.message || 'Failed to update review cycle.');
+                return rejectWithValue(response.data.message);
             }
-            dispatch(fetchAllReviewCycles()); // Re-fetch list
-            return response.data.data; // Return the updated cycle
+            toast.success("Review Cycle updated.");
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to update review cycle.';
+            const message = error.response?.data?.message || 'Failed to update review cycle.';
+            toast.error(message);
             return rejectWithValue(message);
+        } finally {
+            toast.dismiss(toastId);
         }
     }
 );
 
-// 5. Activate Review Cycle
+// 5. Activate a Review Cycle
 export const activateReviewCycle = createAsyncThunk(
     'reviewCycle/activate',
-    async (cycleId, { dispatch, rejectWithValue }) => {
+    async ({ cycleId, token }, { rejectWithValue }) => {
+        const toastId = toast.loading("Activating cycle...");
         try {
-            const response = await apiConnector('PUT', REVIEW_CYCLE_ENDPOINTS.ACTIVATE_REVIEW_CYCLE_API(cycleId));
-            // Backend returns { success, message, data: { cycle, performanceReviewsCreatedCount } }
+            const response = await apiConnector('PUT', REVIEW_CYCLE_ENDPOINTS.ACTIVATE_REVIEW_CYCLE_API(cycleId), null, { Authorization: `Bearer ${token}` });
             if (!response.data.success) {
-                return rejectWithValue(response.data.message || 'Failed to activate review cycle.');
+                return rejectWithValue(response.data.message);
             }
-            dispatch(fetchAllReviewCycles()); // Re-fetch list to show updated status
-            return response.data.data; // Contains updated cycle and count of reviews created
+            toast.success(response.data.message || "Cycle activated!");
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to activate review cycle.';
+            const message = error.response?.data?.message || 'Failed to activate review cycle.';
+            toast.error(message);
             return rejectWithValue(message);
+        } finally {
+            toast.dismiss(toastId);
         }
     }
 );
 
-// 6. Delete Review Cycle
+// 6. Delete a Review Cycle
 export const deleteReviewCycle = createAsyncThunk(
     'reviewCycle/delete',
-    async (cycleId, { dispatch, rejectWithValue }) => {
+    async ({ cycleId, token }, { rejectWithValue }) => {
+        const toastId = toast.loading("Deleting...");
         try {
-            const response = await apiConnector('DELETE', REVIEW_CYCLE_ENDPOINTS.DELETE_REVIEW_CYCLE_API(cycleId));
-            // Backend returns { success, message, data: {} } or 200/204
-            if (response.status === 200 || response.status === 204 || (response.data && response.data.success)) {
-                dispatch(fetchAllReviewCycles()); // Re-fetch list
-                return { cycleId }; // Return ID for UI to remove if needed immediately
-            }
-            return rejectWithValue(response.data?.message || 'Failed to delete review cycle.');
+            await apiConnector('DELETE', REVIEW_CYCLE_ENDPOINTS.DELETE_REVIEW_CYCLE_API(cycleId), null, { Authorization: `Bearer ${token}` });
+            toast.success("Review Cycle deleted.");
+            return { cycleId }; // Return ID for removal from state
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to delete review cycle.';
+            const message = error.response?.data?.message || 'Failed to delete review cycle.';
+            toast.error(message);
             return rejectWithValue(message);
+        } finally {
+            toast.dismiss(toastId);
         }
     }
 );
 
-
+// --- Slice Definition ---
 const reviewCycleSlice = createSlice({
     name: 'reviewCycle',
     initialState,
     reducers: {
-        setCurrentReviewCycle: (state, action) => {
-            state.currentReviewCycle = action.payload;
-        },
         clearReviewCycleOperationStatus: (state) => {
             state.operationLoading = false;
             state.operationError = null;
@@ -150,10 +156,9 @@ const reviewCycleSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            // Fetch All Review Cycles
+            // --- Fetch All ---
             .addCase(fetchAllReviewCycles.pending, (state) => {
                 state.loadingList = true;
-                state.error = null;
             })
             .addCase(fetchAllReviewCycles.fulfilled, (state, action) => {
                 state.loadingList = false;
@@ -163,14 +168,10 @@ const reviewCycleSlice = createSlice({
             .addCase(fetchAllReviewCycles.rejected, (state, action) => {
                 state.loadingList = false;
                 state.error = action.payload;
-                state.reviewCycles = [];
             })
-
-            // Fetch Review Cycle By ID
+            // --- Fetch By ID ---
             .addCase(fetchReviewCycleById.pending, (state) => {
                 state.loadingDetails = true;
-                state.operationError = null; // Or specific detailsError
-                state.currentReviewCycle = null;
             })
             .addCase(fetchReviewCycleById.fulfilled, (state, action) => {
                 state.loadingDetails = false;
@@ -178,18 +179,48 @@ const reviewCycleSlice = createSlice({
             })
             .addCase(fetchReviewCycleById.rejected, (state, action) => {
                 state.loadingDetails = false;
-                state.operationError = action.payload; // Or detailsError
-                state.currentReviewCycle = null;
+                state.error = action.payload;
             })
-
-            // Common handling for Create, Update, Activate, Delete operations
+            // --- Fulfilled cases for CUD ---
+            .addCase(createReviewCycle.fulfilled, (state, action) => {
+                state.operationLoading = false;
+                state.operationSuccess = true;
+                state.reviewCycles.unshift(action.payload); // Add new cycle to the beginning of the list
+            })
+            .addCase(updateReviewCycle.fulfilled, (state, action) => {
+                state.operationLoading = false;
+                state.operationSuccess = true;
+                const index = state.reviewCycles.findIndex(c => c._id === action.payload._id);
+                if (index !== -1) {
+                    state.reviewCycles[index] = action.payload;
+                }
+                if (state.currentReviewCycle?._id === action.payload._id) {
+                    state.currentReviewCycle = action.payload;
+                }
+            })
+            .addCase(activateReviewCycle.fulfilled, (state, action) => {
+                state.operationLoading = false;
+                state.operationSuccess = true;
+                const activatedData = action.payload; // Contains { cycleId, status, ... }
+                const index = state.reviewCycles.findIndex(c => c._id === activatedData.cycleId);
+                if (index !== -1) {
+                    state.reviewCycles[index].status = activatedData.status;
+                }
+                if (state.currentReviewCycle?._id === activatedData.cycleId) {
+                    state.currentReviewCycle.status = activatedData.status;
+                }
+            })
+            .addCase(deleteReviewCycle.fulfilled, (state, action) => {
+                state.operationLoading = false;
+                state.operationSuccess = true;
+                state.reviewCycles = state.reviewCycles.filter(c => c._id !== action.payload.cycleId);
+                if (state.currentReviewCycle?._id === action.payload.cycleId) {
+                    state.currentReviewCycle = null;
+                }
+            })
+            // --- CUD Operations (Matcher for shared logic for pending/rejected states) ---
             .addMatcher(
-                (action) => [
-                    createReviewCycle.pending.type,
-                    updateReviewCycle.pending.type,
-                    activateReviewCycle.pending.type,
-                    deleteReviewCycle.pending.type,
-                ].includes(action.type),
+                (action) => [createReviewCycle.pending, updateReviewCycle.pending, activateReviewCycle.pending, deleteReviewCycle.pending].some(type => action.type === type.type),
                 (state) => {
                     state.operationLoading = true;
                     state.operationError = null;
@@ -197,35 +228,7 @@ const reviewCycleSlice = createSlice({
                 }
             )
             .addMatcher(
-                (action) => [
-                    createReviewCycle.fulfilled.type,
-                    updateReviewCycle.fulfilled.type,
-                    activateReviewCycle.fulfilled.type,
-                    deleteReviewCycle.fulfilled.type,
-                ].includes(action.type),
-                (state, action) => {
-                    state.operationLoading = false;
-                    state.operationSuccess = true;
-                    // List is re-fetched by the thunks.
-                    // Update currentReviewCycle if it was the one affected.
-                    if (action.payload && action.payload._id && state.currentReviewCycle?._id === action.payload._id) {
-                        state.currentReviewCycle = action.payload; // If the payload is the updated cycle
-                    } else if (action.payload?.cycle?._id && state.currentReviewCycle?._id === action.payload.cycle._id) {
-                        state.currentReviewCycle = action.payload.cycle; // For activateReviewCycle
-                    }
-
-                    if (action.type === deleteReviewCycle.fulfilled.type && state.currentReviewCycle?._id === action.payload.cycleId) {
-                        state.currentReviewCycle = null;
-                    }
-                }
-            )
-            .addMatcher(
-                (action) => [
-                    createReviewCycle.rejected.type,
-                    updateReviewCycle.rejected.type,
-                    activateReviewCycle.rejected.type,
-                    deleteReviewCycle.rejected.type,
-                ].includes(action.type),
+                (action) => [createReviewCycle.rejected, updateReviewCycle.rejected, activateReviewCycle.rejected, deleteReviewCycle.rejected].some(type => action.type === type.type),
                 (state, action) => {
                     state.operationLoading = false;
                     state.operationError = action.payload;
@@ -234,6 +237,5 @@ const reviewCycleSlice = createSlice({
     },
 });
 
-export const { setCurrentReviewCycle, clearReviewCycleOperationStatus } = reviewCycleSlice.actions;
-
+export const { clearReviewCycleOperationStatus } = reviewCycleSlice.actions;
 export default reviewCycleSlice.reducer;

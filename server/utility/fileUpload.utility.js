@@ -1,10 +1,9 @@
 import { v2 as cloudinary } from 'cloudinary'
 import dotenv from 'dotenv';
+import fs from 'fs';
 dotenv.config();
 
-import fs from 'fs';
-
-export const fileUpload = async (localFilePath,name,quality='auto') => {
+export const uploadOnCloudinary = async (localFilePath,name,quality='auto') => {
      try {
          const options = {};
          options.public_id = name;
@@ -15,10 +14,10 @@ export const fileUpload = async (localFilePath,name,quality='auto') => {
          options.overwrite = true;
          options.folder = process.env.CLOUDINARY_FOLDER_NAME || "Worksphere"
          const response = await cloudinary.uploader.upload(localFilePath, options);
-         //  TODO -> Remove File Path Locally
+         fs.unlinkSync(localFilePath);
          return response;
      } catch (error) {
-         //  TODO -> Remove File Path Locally
+         fs.unlinkSync(localFilePath);
          console.error('Error in uploading file to cloudinary: ', error.message);
      }
 }

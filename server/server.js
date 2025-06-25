@@ -8,9 +8,8 @@ import session from 'express-session'
 import cookieParser from 'cookie-parser'
 
 import dbConnect from './config/database.js'
-import './config/passport.js' // We'll create this file next
+import './config/passport.js' 
 
-// import routes
 import transactionsRoutes from './routes/transaction.js'
 import projectRoutes from './routes/projects.js'
 import departmentRoutes from './routes/department.js';
@@ -27,15 +26,15 @@ import taksRoutes from './routes/tasks.routes.js';
 import timeSheetRoute from './routes/timeSheet.routes.js';
 import attendanceRoutes from './routes/attendance.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
-import announcemetRoutes from './routes/announcement.routes.js'
+import announcemetRoutes from './routes/announcement.routes.js';
+import bonusSystemRoutes from './routes/bonus.routes.js';
+import goalSystemRoutes from './routes/goal.routes.js';
+import paymentRoutes from './routes/payment.js'
 
 const app = express()
 
-// db connection
 dbConnect()
 
-
-// Configuration- middleware setup
 dotenv.config()
 app.use(express.json())
 app.use(helmet())
@@ -45,7 +44,6 @@ app.use(express.urlencoded({
     extended: true
 }))
 
-// Cookie and Session middleware
 app.use(cookieParser())
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
@@ -54,15 +52,13 @@ app.use(session({
     cookie: {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000 
     }
 }))
 
-// Initialize Passport and restore authentication state from session
 app.use(passport.initialize())
 app.use(passport.session())
 
-// CORS configuration
 app.use(cors({
     origin: [
         process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -80,7 +76,6 @@ app.use(cors({
     ]
 }));
 
-// Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(err.status || 500).json({
@@ -92,15 +87,15 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000
 
-// Default route
 app.get('/', (req, res) => {
     res.send(`<h1>ADMIN PORTAL SYSTEM</h1>`)
 })
-// Routes
+
+app.use("/api/v1/payments", paymentRoutes); 
 app.use("/api/v1/clientData", clientRoutes);
 app.use("/api/v1/employeeInfo", employeeInfoRoutes)
 app.use("/api/v1/management", managementRoutes);
-app.use("/api/v1/transactionsDetails", transactionsRoutes);
+app.use("/api/v1/transactions", transactionsRoutes);
 app.use('/api/v1/projectData', projectRoutes);
 app.use('/api/v1/departmentData', departmentRoutes);
 app.use('/api/v1/teamRoutes', teamRoutes);
@@ -108,16 +103,15 @@ app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/calendar', calendarRoutes);
 app.use('/api/v1/leaveSystem', leaveSystemRoutes);
 app.use('/api/v1/reviewCycle', reviewCycleRoues);
-app.use('/api/v1/employeePerformance', employeePerformanceRoutes);
+app.use('/api/v1/employee-performance', employeePerformanceRoutes);
 app.use('/api/v1/taskRoutes', taksRoutes);
-app.use('/api/v1/timesheet', timeSheetRoute);
+app.use('/api/v1/timesheets', timeSheetRoute);
 app.use('/api/v1/attendanceRoutes', attendanceRoutes);
 app.use('/api/v1/dashboardRoutes', dashboardRoutes);
 app.use('/api/v1/announcementRoutes', announcemetRoutes);
-
-
+app.use('/api/v1/bonus', bonusSystemRoutes);
+app.use('/api/v1/goals',goalSystemRoutes);
 
 app.listen(PORT, () => {
     console.log(`Server started successfully at Port ${PORT}`)
-
 })

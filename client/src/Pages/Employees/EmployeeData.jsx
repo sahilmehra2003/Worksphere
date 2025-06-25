@@ -56,7 +56,7 @@ const EmployeeData = () => {
 
   // Local state for MUI TablePagination and modals
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(4);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -109,7 +109,7 @@ const EmployeeData = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 4));
+    setRowsPerPage(parseInt(event.target.value, 5));
     setPage(0);
   };
 
@@ -266,7 +266,7 @@ const EmployeeData = () => {
                   select
                   fullWidth
                   label="Role"
-                  value={filters.position}
+                  value={filters.role}
                   onChange={(e) => handleFilterChange('role', e.target.value)}
                   size="small"
                 >
@@ -276,7 +276,7 @@ const EmployeeData = () => {
                   <MenuItem value="Manager">Manager</MenuItem>
                   <MenuItem value="HR">HR</MenuItem>
                   <MenuItem value="Admin">Admin</MenuItem>
-                  
+
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>

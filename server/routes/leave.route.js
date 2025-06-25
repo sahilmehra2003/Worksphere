@@ -6,7 +6,9 @@ import {
     rejectLeave,
     getLeaveHistory,
     getLeaveBalance,
-    cancelLeave
+    cancelLeave,
+    createLeaveBalancesForAllEmployees,
+    getPendingLeaveRequests
 } from '../controllers/leave.controller.js'
 import { checkOverlappingLeaves } from '../middlewares/validateLeave.middleware.js'
 import { authN } from '../middlewares/auth.js'
@@ -17,8 +19,15 @@ const router = express.Router();
 // Apply leave (Employee) - Needs auth, check for overlaps
 router.post('/apply',
     authN,
-    checkOverlappingLeaves, 
+    checkOverlappingLeaves,
     applyLeave
+);
+
+// Get pending leave requests (Admin/HR/Manager only)
+router.get('/pending',
+    authN,
+    checkRole(['Admin', 'HR', 'Manager']),
+    getPendingLeaveRequests
 );
 
 // Approve leave (Requires 'approve_leaves' permission)
@@ -44,5 +53,8 @@ router.get('/balance', authN, getLeaveBalance);
 // Example: Route for HR/Manager to get specific employee's balance
 // router.get('/balance/:employeeId', authN, isManagerOrHR, getLeaveBalance);
 router.put('/:leaveId/cancel', authN, cancelLeave);
+
+// Add leave balances for all employees (Admin/HR only)
+router.post('/balance/init-all', authN, checkRole(['Admin', 'HR']), createLeaveBalancesForAllEmployees);
 
 export default router;

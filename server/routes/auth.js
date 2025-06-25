@@ -1,7 +1,7 @@
 import express from 'express'
 const router = express.Router()
 
-import { signup, login, sendOTP, verifyOtp, forgotPassword, resetPassword, googleAuthenticationCallback, getCurrentUser } from '../controllers/authController.js'
+import { signup, login, sendOTP, verifyOtp, forgotPassword, resetPassword, googleAuthenticationCallback, getCurrentUser, logout } from '../controllers/authController.js'
 import { authN, isAdmin, isAdminOrEmployee } from '../middlewares/auth.js';
 import passport from 'passport';
 import Employee from '../models/employeeSchema.js';
@@ -29,10 +29,7 @@ router.post('/verify-otp', verifyOtp);
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
 router.get('/me', authN, getCurrentUser);
-
-
-
-
+router.post('/logout', authN, logout);
 
 // Protected route for both Admin and Employee
 router.get("/dashboard", authN, isAdminOrEmployee, (req, res) => {

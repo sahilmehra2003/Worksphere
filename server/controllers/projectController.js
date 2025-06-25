@@ -86,6 +86,48 @@ export const getProjectById = async (req, res) => {
   }
 };
 
+export const getMyProjects = async (req, res) => {
+  try {
+    const employeeId = req.user._id;
+
+    // First, find all teams that the employee is a member of
+    const employeeTeams = await ProjectTeam.find({
+      'members.employeeId': employeeId
+    }).select('_id teamName');
+
+    if (!employeeTeams || employeeTeams.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No projects found for this employee",
+        data: []
+      });
+    }
+
+    // Extract team IDs
+    const teamIds = employeeTeams.map(team => team._id);
+
+    // Find all projects that have any of these teams
+    const projects = await Project.find({
+      teamId: { $in: teamIds }
+    })
+      .populate('clientId', 'name _id')
+      .populate('teamId', 'teamName _id')
+      .populate('departmentId', 'name')
+      .populate('revenues', 'amount date category status')
+      .populate('expenses', 'amount date category status')
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    res.status(200).json({
+      success: true,
+      message: "Successfully fetched employee's projects",
+      data: projects.map(normalizeProject)
+    });
+  } catch (error) {
+    console.error('Error fetching employee projects:', error);
+    res.status(500).json({ success: false, message: 'Error fetching projects. Please try again later.' });
+  }
+};
+
 export const createProject = async (req, res) => {
   try {
     const { name, description, status, startDate, clientId, endDate, budget, teamId, departmentId } = req.body;

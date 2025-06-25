@@ -82,7 +82,6 @@ const bonusTypeSchema = new mongoose.Schema(
 );
 
 
-bonusTypeSchema.index({ typeCode: 1 });
 bonusTypeSchema.index({ name: 1 }); 
 bonusTypeSchema.index({ category: 1 });
 bonusTypeSchema.index({ isActive: 1 });

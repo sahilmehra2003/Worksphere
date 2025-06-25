@@ -15,7 +15,9 @@ import announcementReducer from './Slices/announcementSlice'
 import timesheetReducer from './Slices/timeSheetSlice'
 import reviewCycleReducer from './Slices/reviewCycleSlice'
 import projectTeamReducer from './Slices/projectTeamSlice'
-
+import bonusReducer from './Slices/bonusSlice'
+import goalReducer from './Slices/goalSlice'
+import performanceReviewReducer from './Slices/performanceReviewSlice'
 const rootReducer = combineReducers({
     theme: themeReducer,
     auth: authReducer,
@@ -32,7 +34,10 @@ const rootReducer = combineReducers({
     announcement: announcementReducer,
     timesheet: timesheetReducer,
     reviewCycle: reviewCycleReducer,
-    projectTeam: projectTeamReducer
+    projectTeam: projectTeamReducer,
+    bonus: bonusReducer,
+    goal: goalReducer,
+    performanceReview: performanceReviewReducer
     // ... add other reducers here
 });
 

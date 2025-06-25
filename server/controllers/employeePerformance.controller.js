@@ -1,18 +1,61 @@
 import PerformanceReview from "../models/employeePerformanceSchema.js";
 import ReviewCycle from "../models/reviewCycle.model.js";
 import Employee from "../models/employeeSchema.js";
+import Goal from "../models/goal.model.js";
 import mongoose from "mongoose";
 
 
+
+
+export const createPerformanceReview = async (req, res) => {
+    try {
+        const { employeeId, reviewCycleId } = req.body;
+
+        // --- Validation ---
+        const employee = await Employee.findById(employeeId);
+        if (!employee) return res.status(404).json({ success: false, message: "Employee not found." });
+
+        const reviewCycle = await ReviewCycle.findById(reviewCycleId);
+        if (!reviewCycle) return res.status(404).json({ success: false, message: "Review Cycle not found." });
+        if (reviewCycle.status !== 'Active') {
+            return res.status(400).json({ success: false, message: "Reviews can only be initiated for 'Active' review cycles." });
+        }
+
+        // --- Prevent Duplicates ---
+        const existingReview = await PerformanceReview.findOne({ employee: employeeId, reviewCycle: reviewCycleId });
+        if (existingReview) {
+            return res.status(409).json({ success: false, message: "A performance review for this employee already exists in this cycle." });
+        }
+
+        // --- Fetch employee's goals for this specific cycle ---
+        const employeeGoals = await Goal.find({ employee: employeeId, reviewCycle: reviewCycleId });
+
+        // --- Create the Review ---
+        const newReview = await PerformanceReview.create({
+            employee: employeeId,
+            reviewCycle: reviewCycleId,
+            manager: employee.manager || null, // Allow null if no manager assigned
+            goals: employeeGoals.map(goal => goal._id),
+            status: 'Pending Self-Assessment'
+        });
+
+        res.status(201).json({ success: true, message: "Performance review initiated successfully.", data: newReview });
+
+    } catch (error) {
+        console.error("Error creating performance review:", error);
+        res.status(500).json({ success: false, message: 'Server error while initiating review.' });
+    }
+};
+
 export const getMyPerformanceReviews = async (req, res) => {
     try {
-      
+
         const employeeId = req.user._id;
 
-    
+
         const query = {
             employee: employeeId,
-            isDeleted: false 
+            isDeleted: false
         };
 
 
@@ -20,16 +63,16 @@ export const getMyPerformanceReviews = async (req, res) => {
         const reviews = await PerformanceReview.find(query)
             // Populate details from related documents
             .populate({
-                path: 'reviewCycle', 
-                select: 'name year startDate endDate status' 
+                path: 'reviewCycle',
+                select: 'name year startDate endDate status'
             })
             .populate({
-                path: 'manager', 
-                select: 'name email' 
+                path: 'manager',
+                select: 'name email'
             })
-           
-            .sort({ 'reviewCycle.startDate': -1 }) 
-            .lean(); 
+
+            .sort({ 'reviewCycle.startDate': -1 })
+            .lean();
 
 
         res.status(200).json({
@@ -101,183 +144,98 @@ export const getTeamPerformanceReviews = async (req, res) => {
 
 export const getPerformanceReviewById = async (req, res) => {
     try {
-        const { reviewId } = req.params;
-        const requestingUser = req.user; 
+        const { id } = req.params;
+        const requestingUser = req.user;
 
-        if (!mongoose.Types.ObjectId.isValid(reviewId)) {
-            return res.status(400).json({ success: false, message: 'Invalid Performance Review ID format.' });
-        }
-
-        const review = await PerformanceReview.findOne({ _id: reviewId, isDeleted: false })
+        const review = await PerformanceReview.findOne({ _id: id, isDeleted: false })
             .populate({ path: 'reviewCycle', select: 'name year startDate endDate status' })
-            .populate({ path: 'employee', select: 'name email position department manager' }) 
-            .populate({ path: 'manager', select: 'name email' }); 
+            .populate({ path: 'employee', select: 'name email position' })
+            .populate({ path: 'manager', select: 'name email' })
+            .populate({ path: 'goals', select: 'description status progress' });
 
         if (!review) {
             return res.status(404).json({ success: false, message: 'Performance Review not found.' });
         }
 
-     
+        // Authorization logic remains the same
         const isAdminOrHR = requestingUser.role === 'Admin' || requestingUser.role === 'HR';
         const isOwnReview = requestingUser._id.equals(review.employee._id);
-        const isTheirManager = requestingUser._id.equals(review.manager?._id); // Check direct manager stored in review
-        
+        const isTheirManager = requestingUser._id.equals(review.manager?._id);
 
         if (isAdminOrHR || isOwnReview || isTheirManager) {
-            // User is authorized
-             res.status(200).json({
-                success: true,
-                data: review
-            });
+            return res.status(200).json({ success: true, data: review });
         } else {
-            // User is not authorized to view this specific review
-            return res.status(403).json({ success: false, message: 'Access denied: You are not authorized to view this review.' });
+            return res.status(403).json({ success: false, message: 'Access denied.' });
         }
 
     } catch (error) {
         console.error("Error fetching performance review by ID:", error);
-        res.status(500).json({ success: false, message: 'Server error fetching review.', error: error.message });
+        res.status(500).json({ success: false, message: 'Server error fetching review.' });
     }
 };
 
-
 export const updatePerformanceReview = async (req, res) => {
     try {
-        const { reviewId } = req.params;
-        const requestingUser = req.user;
+        const { id } = req.params;
         const updatePayload = req.body;
+        const requester = req.user;
 
-        if (!mongoose.Types.ObjectId.isValid(reviewId)) {
-            return res.status(400).json({ success: false, message: 'Invalid Performance Review ID format.' });
+        const review = await PerformanceReview.findById(id);
+        if (!review) return res.status(404).json({ success: false, message: "Review not found." });
+        if (['Completed', 'Closed'].includes(review.status)) {
+            return res.status(400).json({ success: false, message: 'This review is completed and cannot be updated.' });
         }
 
-        
-        const review = await PerformanceReview.findOne({ _id: reviewId, isDeleted: false })
-             .populate('employee', 'manager department projectTeam'); 
+        let allowedUpdates = {};
+        let successMessage = "Review updated successfully.";
 
-        if (!review) {
-            return res.status(404).json({ success: false, message: 'Performance Review not found.' });
-        }
-
-        const allowedUpdates = {};
-        const isOwnReview = requestingUser._id.equals(review.employee._id);
-        const isManager = requestingUser._id.equals(review.manager); // Check against manager stored in review
-
-        const isDeptHead = requestingUser.role === 'DepartmentHead' 
-        const isTeamHead = requestingUser.role === 'TeamHead' 
-
-      
-        if (isOwnReview && updatePayload.hasOwnProperty('selfAssessmentComments')) {
-            allowedUpdates.selfAssessmentComments = updatePayload.selfAssessmentComments;
-
-        }
-
-        if (isManager) {
-            const managerFields = ['managerComments', 'managerRating', 'strengths', 'areasForDevelopment', 'clientRating', 'clientComments'];
-            managerFields.forEach(field => {
-                if (updatePayload.hasOwnProperty(field)) {
-                    allowedUpdates[field] = updatePayload[field];
+        // --- Logic for Employee submitting Self-Assessment ---
+        if (review.employee.equals(requester._id)) {
+            if (review.status === 'Pending Self-Assessment') {
+                if (updatePayload.selfAssessmentComments !== undefined) {
+                    allowedUpdates.selfAssessmentComments = updatePayload.selfAssessmentComments;
                 }
-            });
-           
-        }
-
-
-        if (isDeptHead && review.employee) {
-
-            const employeeDepartmentId = review.employee.department;
-
-            let headManagesDeptId = null;
-            try {
-
-                const departmentManaged = await Department.findOne({ departmentHead: req.user._id });
-                if (departmentManaged) {
-                    headManagesDeptId = departmentManaged._id;
-                }
-            } catch(err) {
-                console.error("Error looking up department for head:", err);
+                allowedUpdates.status = 'Pending Manager Review';
+                successMessage = "Self-assessment submitted successfully.";
+            } else {
+                return res.status(400).json({ success: false, message: `Cannot submit self-assessment. Review status is '${review.status}'.` });
             }
-            if (employeeDepartmentId && headManagesDeptId && employeeDepartmentId.equals(headManagesDeptId)) {
-                console.log(`DeptHead Auth Success: User ${req.user._id} manages Dept ${headManagesDeptId}, Employee ${review.employee._id} is in Dept ${employeeDepartmentId}`);
-                const headFields = ['departmentHeadRating', 'departmentHeadComments'];
-                headFields.forEach(field => {
-                    if (updatePayload.hasOwnProperty(field)) {
-                        allowedUpdates[field] = updatePayload[field];
-                    }
+        }
+        // --- Logic for Manager submitting their review ---
+        else if (review.manager && review.manager.equals(requester._id)) {
+            if (review.status === 'Pending Manager Review') {
+                const managerFields = ['managerComments', 'managerRating', 'strengths', 'areasForDevelopment'];
+                managerFields.forEach(field => {
+                    if (updatePayload[field] !== undefined) allowedUpdates[field] = updatePayload[field];
                 });
+                allowedUpdates.status = 'Completed';
+                successMessage = "Manager review submitted successfully.";
             } else {
-                 console.warn(`DeptHead Auth Failed: User ${req.user._id} does not manage employee ${review.employee._id}'s department (${employeeDepartmentId}). They manage dept ${headManagesDeptId}`);
+                return res.status(400).json({ success: false, message: `Cannot submit manager review. Status is '${review.status}'.` });
             }
         }
-        
-
-         if (isTeamHead && review.employee) {
-
-            const employeeTeamId = review.employee.projectTeam;
-        
-            if (employeeTeamId) {
-
-                try {
-
-                    const teamManagedByRequester = await ProjectTeam.findOne({
-                        _id: employeeTeamId,      
-                        teamLead: requestingUser._id 
-                    });
-        
-                    if (teamManagedByRequester) {
-
-                        console.log(`TeamHead Auth Success: User ${requestingUser._id} leads Team ${employeeTeamId}, Employee ${review.employee._id} is in this team.`);
- 
-                        const headFields = ['teamHeadRating', 'teamHeadComments']; 
-                        headFields.forEach(field => {
-                            if (updatePayload.hasOwnProperty(field)) {
-                                allowedUpdates[field] = updatePayload[field];
-                            }
-                        });
-                    } else {
-                        console.warn(`TeamHead Auth Failed: User ${requestingUser._id} does not lead employee ${review.employee._id}'s assigned team (${employeeTeamId}).`);
-                 
-                    }
-                } catch (teamLookupError) {
-                    console.error(`Error checking team leadership for TeamHead ${requestingUser._id} and Team ${employeeTeamId}:`, teamLookupError);
-                
-                }
+        // --- Logic for Employee Acknowledging the review ---
+        else if (review.employee.equals(requester._id)) {
+            if (review.status === 'Completed') {
+                allowedUpdates.status = 'Closed';
+                successMessage = "Review acknowledged successfully.";
             } else {
-               
-                console.warn(`TeamHead Auth Failed: Employee ${review.employee._id} is not assigned to a project team.`);
-              
+                return res.status(400).json({ success: false, message: `Cannot acknowledge review. Status is '${review.status}'.` });
             }
+        } else {
+            return res.status(403).json({ success: false, message: "You can only update your own reviews or reviews you manage." });
         }
-        
 
         if (Object.keys(allowedUpdates).length === 0) {
-            return res.status(400).json({ success: false, message: 'No valid fields provided for update or insufficient permissions.' });
+            return res.status(400).json({ success: false, message: "No valid fields provided for update." });
         }
 
-        allowedUpdates.updatedAt = Date.now(); 
-
-        const updatedReview = await PerformanceReview.findByIdAndUpdate(
-            reviewId,
-            { $set: allowedUpdates },
-            { new: true, runValidators: true }
-        )
-        .populate({ path: 'reviewCycle', select: 'name year' })
-        .populate({ path: 'employee', select: 'name email' })
-        .populate({ path: 'manager', select: 'name email' });
-
-
-        res.status(200).json({
-            success: true,
-            message: 'Performance Review updated successfully.',
-            data: updatedReview
-        });
+        const updatedReview = await PerformanceReview.findByIdAndUpdate(id, { $set: allowedUpdates }, { new: true });
+        res.status(200).json({ success: true, message: successMessage, data: updatedReview });
 
     } catch (error) {
         console.error("Error updating performance review:", error);
-         if (error.name === 'ValidationError') {
-             return res.status(400).json({ success: false, message: 'Validation Error', error: error.message });
-        }
-        res.status(500).json({ success: false, message: 'Server error updating review.', error: error.message });
+        res.status(500).json({ success: false, message: 'Server error while updating review.' });
     }
 };
 
@@ -293,16 +251,16 @@ export const getAllPerformanceReviews = async (req, res) => {
         if (req.query.employeeId && mongoose.Types.ObjectId.isValid(req.query.employeeId)) {
             query.employee = req.query.employeeId;
         }
-         if (req.query.managerId && mongoose.Types.ObjectId.isValid(req.query.managerId)) {
+        if (req.query.managerId && mongoose.Types.ObjectId.isValid(req.query.managerId)) {
             query.manager = req.query.managerId;
         }
-       
+
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20; // Default limit 20
         const skip = (page - 1) * limit;
 
         // Simpler sort for now: by creation date
-         const sort = { createdAt: -1 };
+        const sort = { createdAt: -1 };
 
         const reviews = await PerformanceReview.find(query)
             .populate({ path: 'reviewCycle', select: 'name year' })
@@ -334,33 +292,267 @@ export const getAllPerformanceReviews = async (req, res) => {
 };
 
 
-// Only HR/Admin
+
 export const softDeletePerformanceReview = async (req, res) => {
     try {
-       const { reviewId } = req.params;
+        const { reviewId } = req.params;
 
-       if (!mongoose.Types.ObjectId.isValid(reviewId)) {
-           return res.status(400).json({ success: false, message: 'Invalid Performance Review ID format.' });
-       }
+        if (!mongoose.Types.ObjectId.isValid(reviewId)) {
+            return res.status(400).json({ success: false, message: 'Invalid Performance Review ID format.' });
+        }
 
-       const updatedReview = await PerformanceReview.findByIdAndUpdate(
-           reviewId,
-           { isDeleted: true },
-           { new: true } 
-       );
+        const updatedReview = await PerformanceReview.findByIdAndUpdate(
+            reviewId,
+            { isDeleted: true },
+            { new: true }
+        );
 
-       if (!updatedReview) {
-           return res.status(404).json({ success: false, message: 'Performance Review not found.' });
-       }
+        if (!updatedReview) {
+            return res.status(404).json({ success: false, message: 'Performance Review not found.' });
+        }
 
-       res.status(200).json({
-           success: true,
-           message: 'Performance Review marked as deleted successfully.',
-           data: { id: updatedReview._id, isDeleted: updatedReview.isDeleted }
-       });
+        res.status(200).json({
+            success: true,
+            message: 'Performance Review marked as deleted successfully.',
+            data: { id: updatedReview._id, isDeleted: updatedReview.isDeleted }
+        });
 
-   } catch (error) {
-       console.error("Error soft deleting performance review:", error);
-       res.status(500).json({ success: false, message: 'Server error deleting review.', error: error.message });
-   }
+    } catch (error) {
+        console.error("Error soft deleting performance review:", error);
+        res.status(500).json({ success: false, message: 'Server error deleting review.', error: error.message });
+    }
+};
+
+// --- NEW: Submit Self-Assessment ---
+export const submitSelfAssessment = async (req, res) => {
+    try {
+        const { reviewId, employeeId, reviewCycleId, selfAssessmentComments } = req.body;
+        const requester = req.user;
+
+        let targetReviewId = reviewId;
+        let review;
+
+        // If no reviewId provided, find or create review
+        if (!targetReviewId) {
+            if (!employeeId || !reviewCycleId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Employee ID and Review Cycle ID are required when creating a new review."
+                });
+            }
+
+            // Check if review already exists
+            review = await PerformanceReview.findOne({
+                employee: employeeId,
+                reviewCycle: reviewCycleId,
+                isDeleted: false
+            });
+
+            if (review) {
+                targetReviewId = review._id;
+            } else {
+                // Create new review
+                const employee = await Employee.findById(employeeId);
+                if (!employee) {
+                    return res.status(404).json({ success: false, message: "Employee not found." });
+                }
+
+                const reviewCycle = await ReviewCycle.findById(reviewCycleId);
+                if (!reviewCycle) {
+                    return res.status(404).json({ success: false, message: "Review Cycle not found." });
+                }
+
+                const employeeGoals = await Goal.find({ employee: employeeId, reviewCycle: reviewCycleId });
+
+                review = await PerformanceReview.create({
+                    employee: employeeId,
+                    reviewCycle: reviewCycleId,
+                    manager: employee.manager || null,
+                    goals: employeeGoals.map(goal => goal._id),
+                    status: 'Pending Self-Assessment'
+                });
+                targetReviewId = review._id;
+            }
+        } else {
+            review = await PerformanceReview.findById(targetReviewId);
+        }
+
+        if (!review) {
+            return res.status(404).json({ success: false, message: "Review not found." });
+        }
+
+        // Authorization check
+        const isAdminOrHR = requester.role === 'Admin' || requester.role === 'HR';
+        const isOwnReview = review.employee.equals(requester._id);
+
+        if (!isAdminOrHR && !isOwnReview) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only submit self-assessment for your own review or as Admin/HR."
+            });
+        }
+
+        // Status validation
+        if (review.status !== 'Pending Self-Assessment') {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot submit self-assessment. Review status is '${review.status}'.`
+            });
+        }
+
+        // Update the review
+        const updatedReview = await PerformanceReview.findByIdAndUpdate(
+            targetReviewId,
+            {
+                selfAssessmentComments,
+                status: 'Pending Manager Review'
+            },
+            { new: true }
+        ).populate([
+            { path: 'reviewCycle', select: 'name year startDate endDate status' },
+            { path: 'employee', select: 'name email position' },
+            { path: 'manager', select: 'name email' },
+            { path: 'goals', select: 'description status progress' }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            message: "Self-assessment submitted successfully.",
+            data: updatedReview
+        });
+
+    } catch (error) {
+        console.error("Error submitting self-assessment:", error);
+        res.status(500).json({ success: false, message: 'Server error while submitting self-assessment.' });
+    }
+};
+
+// --- NEW: Submit Manager/HR/Admin Review ---
+export const submitManagerReview = async (req, res) => {
+    try {
+        const {
+            reviewId,
+            employeeId,
+            reviewCycleId,
+            managerComments,
+            managerRating,
+            strengths,
+            areasForDevelopment
+        } = req.body;
+        const requester = req.user;
+
+        let targetReviewId = reviewId;
+        let review;
+
+        // If no reviewId provided, find or create review
+        if (!targetReviewId) {
+            if (!employeeId || !reviewCycleId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Employee ID and Review Cycle ID are required when creating a new review."
+                });
+            }
+
+            // Check if review already exists
+            review = await PerformanceReview.findOne({
+                employee: employeeId,
+                reviewCycle: reviewCycleId,
+                isDeleted: false
+            });
+
+            if (review) {
+                targetReviewId = review._id;
+            } else {
+                // Create new review
+                const employee = await Employee.findById(employeeId);
+                if (!employee) {
+                    return res.status(404).json({ success: false, message: "Employee not found." });
+                }
+
+                const reviewCycle = await ReviewCycle.findById(reviewCycleId);
+                if (!reviewCycle) {
+                    return res.status(404).json({ success: false, message: "Review Cycle not found." });
+                }
+
+                const employeeGoals = await Goal.find({ employee: employeeId, reviewCycle: reviewCycleId });
+
+                review = await PerformanceReview.create({
+                    employee: employeeId,
+                    reviewCycle: reviewCycleId,
+                    manager: requester._id, // Set the requester as manager
+                    goals: employeeGoals.map(goal => goal._id),
+                    status: 'Pending Manager Review'
+                });
+                targetReviewId = review._id;
+            }
+        } else {
+            review = await PerformanceReview.findById(targetReviewId);
+        }
+
+        if (!review) {
+            return res.status(404).json({ success: false, message: "Review not found." });
+        }
+
+        // Authorization check
+        const isAdminOrHR = requester.role === 'Admin' || requester.role === 'HR';
+        const isManager = review.manager && review.manager.equals(requester._id);
+
+        if (!isAdminOrHR && !isManager) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only submit manager review for reviews you manage or as Admin/HR."
+            });
+        }
+
+        // Status validation
+        if (review.status !== 'Pending Manager Review') {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot submit manager review. Review status is '${review.status}'.`
+            });
+        }
+
+        // Validation for required fields
+        if (!managerComments || !managerRating) {
+            return res.status(400).json({
+                success: false,
+                message: "Manager comments and rating are required."
+            });
+        }
+
+        if (managerRating < 1 || managerRating > 5) {
+            return res.status(400).json({
+                success: false,
+                message: "Manager rating must be between 1 and 5."
+            });
+        }
+
+        // Update the review
+        const updatedReview = await PerformanceReview.findByIdAndUpdate(
+            targetReviewId,
+            {
+                managerComments,
+                managerRating: parseInt(managerRating),
+                strengths: strengths || [],
+                areasForDevelopment: areasForDevelopment || [],
+                status: 'Completed'
+            },
+            { new: true }
+        ).populate([
+            { path: 'reviewCycle', select: 'name year startDate endDate status' },
+            { path: 'employee', select: 'name email position' },
+            { path: 'manager', select: 'name email' },
+            { path: 'goals', select: 'description status progress' }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            message: "Manager review submitted successfully.",
+            data: updatedReview
+        });
+
+    } catch (error) {
+        console.error("Error submitting manager review:", error);
+        res.status(500).json({ success: false, message: 'Server error while submitting manager review.' });
+    }
 };

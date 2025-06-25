@@ -28,6 +28,22 @@ export const fetchAllProjects = createAsyncThunk(
     }
 );
 
+export const fetchMyProjects = createAsyncThunk(
+    'project/fetchMy',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('GET', PROJECT_ENDPOINTS.GET_MY_PROJECTS_API);
+            if (response.data && response.data.success && Array.isArray(response.data.data)) {
+                return response.data.data;
+            } else {
+                return rejectWithValue(response.data?.message || 'Failed to fetch my projects: Unexpected response.');
+            }
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch my projects.');
+        }
+    }
+);
+
 export const fetchProjectById = createAsyncThunk(
     'project/fetchById',
     async (projectId, { rejectWithValue }) => {
@@ -182,6 +198,19 @@ const projectSlice = createSlice({
                 state.projects = action.payload || [];
             })
             .addCase(fetchAllProjects.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload;
+                state.projects = [];
+            })
+            .addCase(fetchMyProjects.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchMyProjects.fulfilled, (state, action) => {
+                state.loading = false;
+                state.projects = action.payload || [];
+            })
+            .addCase(fetchMyProjects.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
                 state.projects = [];

@@ -1,101 +1,155 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { apiConnector } from '../../services/apiConnector'; 
-import { ATTENDANCE_ENDPOINTS } from '../../services/apiEndpoints'; 
+import { apiConnector } from '../../services/apiConnector';
+import { ATTENDANCE_ENDPOINTS } from '../../services/apiEndpoints';
 
 const initialState = {
-    currentStatus: null, 
+    // Data states
     attendanceHistory: [],
-    historyPagination: { 
-        currentPage: 1,
-        totalPages: 1,
-        totalRecords: 0,
-    },
-    loadingStatus: false,
-    loadingHistory: false,
-    operationLoading: false, // For clockIn/clockOut
-    error: null, // General error for the slice
+    pendingApprovals: [],
+    currentAttendanceStatus: null,
+
+    // Status states
+    loading: false,
+    operationLoading: false,
+    error: null,
     operationError: null,
-    operationSuccess: false, // For clockIn/clockOut success
+    operationSuccess: false,
 };
 
 
 
-// 1. Get Current Attendance Status
+export const markCheckIn = createAsyncThunk(
+    'attendance/markCheckIn',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('POST', ATTENDANCE_ENDPOINTS.CHECK_IN_API);
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response.data);
+        }
+    }
+);
+
+export const markCheckOut = createAsyncThunk(
+    'attendance/markCheckOut',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('POST', ATTENDANCE_ENDPOINTS.CHECK_OUT_API);
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response.data);
+        }
+    }
+);
+
+export const flagIssueToHR = createAsyncThunk(
+    'attendance/flagIssueToHR',
+    async ({ attendanceId, notes }, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('PATCH', ATTENDANCE_ENDPOINTS.FLAG_ISSUE_TO_HR_API(attendanceId), { notes });
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response.data);
+        }
+    }
+);
+
+export const requestHalfDay = createAsyncThunk(
+    'attendance/requestHalfDay',
+    async ({ date, notes }, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('POST', ATTENDANCE_ENDPOINTS.REQUEST_HALF_DAY_API, { date, notes });
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
+export const requestCorrection = createAsyncThunk(
+    'attendance/requestCorrection',
+    async ({ attendanceId, type, reason, checkInTime, checkOutTime }, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('PUT', ATTENDANCE_ENDPOINTS.REQUEST_CORRECTION_API(attendanceId), {
+                type,
+                reason,
+                checkInTime,
+                checkOutTime
+            });
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
+// --- Data Fetching ---
+
+export const fetchAttendanceForEmployee = createAsyncThunk(
+    'attendance/fetchForEmployee',
+    async ({ employeeId, startDate, endDate }, { rejectWithValue }) => {
+        try {
+            const params = { startDate, endDate };
+            const response = await apiConnector('GET', ATTENDANCE_ENDPOINTS.GET_ATTENDANCE_FOR_EMPLOYEE_API(employeeId), null, null, params);
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response.data);
+        }
+    }
+);
+
 export const fetchCurrentAttendanceStatus = createAsyncThunk(
     'attendance/fetchCurrentStatus',
     async (_, { rejectWithValue }) => {
         try {
             const response = await apiConnector('GET', ATTENDANCE_ENDPOINTS.GET_CURRENT_ATTENDANCE_STATUS_API);
-            
-            if (response.data && response.data.success) {
-                return response.data; // Contains status and relevant times/logId
-            }
-            return rejectWithValue(response.data?.message || 'Failed to fetch current attendance status.');
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to fetch current status.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response?.data || error.message);
         }
     }
 );
 
-// 2. Get Attendance History
-export const fetchAttendanceHistory = createAsyncThunk(
-    'attendance/fetchHistory',
-    async ({ page = 1, limit = 15, filters = {} } = {}, { rejectWithValue }) => { 
+// --- Manager & HR Actions ---
+
+export const fetchPendingApprovals = createAsyncThunk(
+    'attendance/fetchPendingApprovals',
+    async (_, { rejectWithValue }) => {
         try {
-            const params = { page, limit, ...filters };
-            const response = await apiConnector('GET', ATTENDANCE_ENDPOINTS.GET_ATTENDANCE_HISTORY_API, null, null, params);
-            
-            if (response.data && response.data.success) {
-                return response.data;
-            }
-            return rejectWithValue(response.data?.message || 'Failed to fetch attendance history.');
+            const response = await apiConnector('GET', ATTENDANCE_ENDPOINTS.GET_PENDING_APPROVALS_API);
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Failed to fetch attendance history.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response.data);
         }
     }
 );
 
-// 3. Clock In
-export const clockIn = createAsyncThunk(
-    'attendance/clockIn',
-    async (_, { dispatch, rejectWithValue }) => {
+export const approveOrRejectShortfall = createAsyncThunk(
+    'attendance/approveOrRejectShortfall',
+    async ({ attendanceId, status, comment }, { rejectWithValue }) => {
         try {
-            const response = await apiConnector('POST', ATTENDANCE_ENDPOINTS.CLOCK_IN_API);
-            
-            if (!response.data.success) {
-                return rejectWithValue(response.data.message || 'Clock-in failed.');
-            }
-            dispatch(fetchCurrentAttendanceStatus()); // Refresh current status after clock-in
-            dispatch(fetchAttendanceHistory({ page: 1, limit: 15 })); // Refresh history (optional, if needed immediately)
-            return response.data;
+            const response = await apiConnector('PATCH', ATTENDANCE_ENDPOINTS.APPROVE_OR_REJECT_SHORTFALL_API(attendanceId), { status, comment });
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Clock-in failed.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response.data);
         }
     }
 );
 
-// 4. Clock Out
-export const clockOut = createAsyncThunk(
-    'attendance/clockOut',
-    async (notesData, { dispatch, rejectWithValue }) => { 
+// --- Admin Actions ---
+
+export const updateAttendanceByAdmin = createAsyncThunk(
+    'attendance/updateByAdmin',
+    async ({ attendanceId, data }, { rejectWithValue }) => {
         try {
-            const response = await apiConnector('POST', ATTENDANCE_ENDPOINTS.CLOCK_OUT_API, notesData);
-            // Backend returns { success: true, message, data: updatedLog }
-            if (!response.data.success) {
-                return rejectWithValue(response.data.message || 'Clock-out failed.');
-            }
-            dispatch(fetchCurrentAttendanceStatus()); // Refresh current status after clock-out
-            dispatch(fetchAttendanceHistory({ page: 1, limit: 15 })); // Refresh history
-            return response.data;
+            const response = await apiConnector('PUT', ATTENDANCE_ENDPOINTS.UPDATE_ATTENDANCE_BY_ADMIN_API(attendanceId), data);
+            return response.data.data;
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'Clock-out failed.';
-            return rejectWithValue(message);
+            return rejectWithValue(error.response.data);
         }
     }
 );
+
 
 const attendanceSlice = createSlice({
     name: 'attendance',
@@ -106,75 +160,65 @@ const attendanceSlice = createSlice({
             state.operationError = null;
             state.operationSuccess = false;
         },
-        // If a user logs out, you might want to reset the attendance state
-        resetAttendanceState: (state) => {
-            Object.assign(state, initialState);
-        }
+        resetAttendanceState: () => initialState,
     },
     extraReducers: (builder) => {
+        const operationPending = (state) => { state.operationLoading = true; state.operationError = null; state.operationSuccess = false; };
+        const operationFulfilled = (state) => { state.operationLoading = false; state.operationSuccess = true; };
+        const operationRejected = (state, action) => { state.operationLoading = false; state.operationError = action.payload; };
+        const listPending = (state) => { state.loading = true; state.error = null; };
+        const listRejected = (state, action) => { state.loading = false; state.error = action.payload; };
+
         builder
-            // Fetch Current Attendance Status
-            .addCase(fetchCurrentAttendanceStatus.pending, (state) => {
-                state.loadingStatus = true;
-                state.error = null;
+            // Employee Actions
+            .addCase(markCheckIn.pending, operationPending).addCase(markCheckIn.fulfilled, operationFulfilled).addCase(markCheckIn.rejected, operationRejected)
+            .addCase(markCheckOut.pending, operationPending).addCase(markCheckOut.fulfilled, operationFulfilled).addCase(markCheckOut.rejected, operationRejected)
+            .addCase(flagIssueToHR.pending, operationPending).addCase(flagIssueToHR.fulfilled, operationFulfilled).addCase(flagIssueToHR.rejected, operationRejected)
+            .addCase(requestHalfDay.pending, operationPending).addCase(requestHalfDay.fulfilled, operationFulfilled).addCase(requestHalfDay.rejected, operationRejected)
+            .addCase(requestCorrection.pending, operationPending).addCase(requestCorrection.fulfilled, operationFulfilled).addCase(requestCorrection.rejected, operationRejected)
+
+            // Data Fetching
+            .addCase(fetchAttendanceForEmployee.pending, listPending)
+            .addCase(fetchAttendanceForEmployee.fulfilled, (state, action) => {
+                state.loading = false;
+                state.attendanceHistory = action.payload;
             })
+            .addCase(fetchAttendanceForEmployee.rejected, listRejected)
+            .addCase(fetchCurrentAttendanceStatus.pending, listPending)
             .addCase(fetchCurrentAttendanceStatus.fulfilled, (state, action) => {
-                state.loadingStatus = false;
-                state.currentStatus = action.payload; // { success, status, clockInTime?, logId?, lastClockOutTime? }
+                state.loading = false;
+                state.currentAttendanceStatus = action.payload;
             })
-            .addCase(fetchCurrentAttendanceStatus.rejected, (state, action) => {
-                state.loadingStatus = false;
-                state.error = action.payload;
-                state.currentStatus = null;
-            })
+            .addCase(fetchCurrentAttendanceStatus.rejected, listRejected)
 
-            // Fetch Attendance History
-            .addCase(fetchAttendanceHistory.pending, (state) => {
-                state.loadingHistory = true;
-                state.error = null;
+            // Manager & HR Actions
+            .addCase(fetchPendingApprovals.pending, listPending)
+            .addCase(fetchPendingApprovals.fulfilled, (state, action) => {
+                state.loading = false;
+                state.pendingApprovals = action.payload;
             })
-            .addCase(fetchAttendanceHistory.fulfilled, (state, action) => {
-                state.loadingHistory = false;
-                state.attendanceHistory = action.payload.data || [];
-                state.historyPagination = action.payload.pagination || initialState.historyPagination;
-            })
-            .addCase(fetchAttendanceHistory.rejected, (state, action) => {
-                state.loadingHistory = false;
-                state.error = action.payload;
-                state.attendanceHistory = [];
-            })
-
-            // Clock In
-            .addCase(clockIn.pending, (state) => {
-                state.operationLoading = true;
-                state.operationError = null;
-                state.operationSuccess = false;
-            })
-            .addCase(clockIn.fulfilled, (state) => {
+            .addCase(fetchPendingApprovals.rejected, listRejected)
+            .addCase(approveOrRejectShortfall.pending, operationPending)
+            .addCase(approveOrRejectShortfall.fulfilled, (state, action) => {
                 state.operationLoading = false;
                 state.operationSuccess = true;
-                // currentStatus and history are updated by dispatched thunks
+                // Remove the approved/rejected item from the pending list
+                state.pendingApprovals = state.pendingApprovals.filter(item => item._id !== action.payload._id);
             })
-            .addCase(clockIn.rejected, (state, action) => {
-                state.operationLoading = false;
-                state.operationError = action.payload;
-            })
+            .addCase(approveOrRejectShortfall.rejected, operationRejected)
 
-            // Clock Out
-            .addCase(clockOut.pending, (state) => {
-                state.operationLoading = true;
-                state.operationError = null;
-                state.operationSuccess = false;
-            })
-            .addCase(clockOut.fulfilled, (state) => {
+            // Admin Actions
+            .addCase(updateAttendanceByAdmin.pending, operationPending)
+            .addCase(updateAttendanceByAdmin.fulfilled, (state, action) => {
                 state.operationLoading = false;
                 state.operationSuccess = true;
-                // currentStatus and history are updated by dispatched thunks
+                // Update the item in the history list if it exists
+                const index = state.attendanceHistory.findIndex(item => item._id === action.payload._id);
+                if (index !== -1) {
+                    state.attendanceHistory[index] = action.payload;
+                }
             })
-            .addCase(clockOut.rejected, (state, action) => {
-                state.operationLoading = false;
-                state.operationError = action.payload;
-            });
+            .addCase(updateAttendanceByAdmin.rejected, operationRejected);
     },
 });
 

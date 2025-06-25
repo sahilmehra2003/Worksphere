@@ -1,15 +1,12 @@
-// server/controllers/dashboardController.js
-
-// ... other imports ...
 import Employee from '../models/employeeSchema.js';
 import Department from '../models/departmentSchema.js';
-import Project from '../models/projectSchema.js'; // Assuming you have a Project model
-import Client from '../models/clientSchema.js';   // Assuming you have a Client model
+import Project from '../models/projectSchema.js'; 
+import Client from '../models/clientSchema.js';   
 import LeaveRequest from '../models/leaveRequest.model.js';
 import Timesheet from '../models/timesheet.model.js';
 import ReviewCycle from '../models/reviewCycle.model.js';
 // import Transaction from '../models/transactionSchema.js';
-import Announcement from '../models/announcement.model.js'; // Uncommented
+import Announcement from '../models/announcement.model.js'; 
 // import SystemLog from '../models/systemLog.model.js'; // TODO: For systemErrorsCount & scheduled job status
 import mongoose from 'mongoose';
 

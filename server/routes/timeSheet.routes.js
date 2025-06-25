@@ -1,57 +1,69 @@
-import express from 'express'
+import express from 'express';
 import {
-    addTimesheetEntry,
-    getTimesheetEntries,
-    updateTimesheetEntry,
-    deleteTimesheetEntry,
-    // time sheets
-    getAllTimesheets,
-    getSubmittedTimesheets,
-    submitTimesheet,
-    rejectTimesheet,
-    approveTimesheet,
-    getMyTimesheets,
-    getTimesheetById,
-    deleteTimesheet
-
-} from '../controllers/timesheet.controller.js'
-import { authN } from '../middlewares/auth.js'
-import { checkPermission } from '../middlewares/permission.middleware.js'
-import { Permissions } from '../config/permission.config.js'
+    createTimeLog,
+    getWeeklyTimeLogs,
+    submitWeeklyTimesheet,
+    approveOrRejectTimeLog,
+    getPendingTimesheetApprovals,
+} from '../controllers/timesheet.controller.js';
+import { authN } from '../middlewares/auth.js';
+import { checkPermission } from '../middlewares/permission.middleware.js';
+import { Permissions } from '../config/permission.config.js';
 
 const router = express.Router();
 
-router.post('/addEntries', authN, addTimesheetEntry);
-router.patch('/updateEntries/:entryId', authN, updateTimesheetEntry);
-router.delete('/deleteEntries/:entryId', authN, deleteTimesheetEntry);
-router.get('/getALLTimesheets', authN, checkPermission(Permissions.VIEW_ALL_TIMESHEETS), getAllTimesheets);
-router.get('/myTimeSheets', authN, getMyTimesheets);
-router.get('/submitted',
+
+// --- Employee Routes ---
+
+// Create a new time log entry for a day
+router.post(
+    '/log',
+    authN,
+    checkPermission(Permissions.FILL_OWN_TIMESHEET),
+    createTimeLog
+);
+
+router.post(
+    '/submit-weekly-timesheet',
+    authN,
+    checkPermission(Permissions.FILL_OWN_TIMESHEET),
+    submitWeeklyTimesheet
+)
+
+// Get all logs for the current user for a specific week
+router.get(
+    '/weekly',
+    authN,
+    checkPermission(Permissions.VIEW_OWN_TIMESHEET),
+    getWeeklyTimeLogs
+);
+
+// Submit a full week's timesheet for approval
+router.patch(
+    '/submit-week',
+    authN,
+    checkPermission(Permissions.SUBMIT_OWN_TIMESHEET),
+    submitWeeklyTimesheet
+);
+
+
+// --- Manager & HR Routes ---
+
+// Get all timesheets pending approval for the current manager
+router.get(
+    '/approvals',
     authN,
     checkPermission(Permissions.APPROVE_TIMESHEETS),
-    getSubmittedTimesheets
+    getPendingTimesheetApprovals
 );
-router.get('/getTimesheetById/:timesheetId',
-    authN,
-    getTimesheetById
-);
-router.patch('/draftTimeSheet/:timesheetId/submit',
-    authN,
-    submitTimesheet
-);
-router.patch('/approveTimesheet/:timesheetId/approve',
+
+// Approve or reject a specific time log
+router.patch(
+    '/approve/:logId',
     authN,
     checkPermission(Permissions.APPROVE_TIMESHEETS),
-    approveTimesheet
+    approveOrRejectTimeLog
 );
-router.patch('/checkTimesheet/:timesheetId/reject',
-    authN,
-    checkPermission(Permissions.APPROVE_TIMESHEETS),
-    rejectTimesheet
-);
-router.delete('/:timesheetId',
-    authN,
-    deleteTimesheet
-);
+
 
 export default router;

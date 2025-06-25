@@ -1,4 +1,3 @@
-
 import mongoose from 'mongoose';
 import Employee from '../models/employeeSchema.js';
 import Leave from '../models/leaveRequest.model.js'
@@ -63,7 +62,7 @@ export const applyLeave = async (req, res, next) => {
             if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) throw new Error();
             if (startDt > endDt) return res.status(400).json({ message: "Start date cannot be after end date." });
         } catch (e) {
-            return res.status(400).json({ success:false,message: "Invalid date format. Use YYYY-MM-DD." });
+            return res.status(400).json({ success: false, message: "Invalid date format. Use YYYY-MM-DD." });
         }
 
         // Policy: Disallow starting or ending on a non-working day
@@ -76,7 +75,7 @@ export const applyLeave = async (req, res, next) => {
         // Calculate the number of *working* days for the leave request
         const numberOfDays = await calculateWorkingDays(startDt, endDt, employeeCountry);
         if (numberOfDays <= 0) {
-             // This can happen if the range only includes non-working days
+            // This can happen if the range only includes non-working days
             return res.status(400).json({ success: false, message: "Selected leave duration does not contain any working days." });
         }
         // --- End Date Validation & Processing ---
@@ -170,7 +169,7 @@ export const approveLeave = async (req, res, next) => {
         // --- Re-check Balance & Deduct ---
         const balance = await LeaveBalance.findOne({ employee: leave.employee });
         if (!balance) {
-             console.error(`CRITICAL: Leave balance record not found for employee ${leave.employee} during approval.`);
+            console.error(`CRITICAL: Leave balance record not found for employee ${leave.employee} during approval.`);
             return res.status(500).json({ success: false, message: "Leave balance record not found for employee. Cannot approve." });
         }
 
@@ -187,13 +186,13 @@ export const approveLeave = async (req, res, next) => {
             default: return res.status(400).json({ success: false, message: "Invalid leave type found in request." });
         }
 
-         if (balanceField && currentBalance < leave.numberOfDays) {
-              // Balance might have changed since application, reject approval
-             return res.status(400).json({
-                 success: false,
-                  message: `Cannot approve: Insufficient ${leave.leaveType} leave balance. Available: ${currentBalance}, Required: ${leave.numberOfDays}`
-              });
-         }
+        if (balanceField && currentBalance < leave.numberOfDays) {
+            // Balance might have changed since application, reject approval
+            return res.status(400).json({
+                success: false,
+                message: `Cannot approve: Insufficient ${leave.leaveType} leave balance. Available: ${currentBalance}, Required: ${leave.numberOfDays}`
+            });
+        }
 
         // --- Update Leave and Balance ---
         // 1. Update Leave Status
@@ -212,8 +211,8 @@ export const approveLeave = async (req, res, next) => {
             if (balanceUpdateResult.modifiedCount === 1) {
                 console.log(`Deduced ${leave.numberOfDays} days from ${balanceField} for employee ${leave.employee}. New balance: ${update[`${balanceField}.current`]}`);
             } else {
-                 console.error(`Failed to update leave balance for employee ${leave.employee} after approving leave ${leaveId}`);
-                 // Potentially roll back leave status or log critical error
+                console.error(`Failed to update leave balance for employee ${leave.employee} after approving leave ${leaveId}`);
+                // Potentially roll back leave status or log critical error
             }
         }
         // --- End Update ---
@@ -232,7 +231,7 @@ export const approveLeave = async (req, res, next) => {
 
 
 export const rejectLeave = async (req, res, next) => {
-     try {
+    try {
         const { leaveId } = req.params;
         const { rejectionReason } = req.body; // Get reason from request body
         const rejectorId = req.user._id; // Assuming authN middleware provides user ID
@@ -251,9 +250,9 @@ export const rejectLeave = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Leave request not found." });
         }
 
-         if (leave.status !== 'Pending') {
-             return res.status(400).json({ success: false, message: `Leave request is already ${leave.status}. Cannot reject.` });
-         }
+        if (leave.status !== 'Pending') {
+            return res.status(400).json({ success: false, message: `Leave request is already ${leave.status}. Cannot reject.` });
+        }
 
         // --- Authorization Check (Deferred - Placeholder) ---
         // TODO: Verify if req.user (rejector) is allowed to reject leave for leave.employee
@@ -270,11 +269,11 @@ export const rejectLeave = async (req, res, next) => {
 
         // TODO: Notify employee logic here
 
-         res.status(200).json({ success: true, message: "Leave request rejected.", leave: updatedLeave });
+        res.status(200).json({ success: true, message: "Leave request rejected.", leave: updatedLeave });
 
     } catch (error) {
         console.error("Error rejecting leave:", error);
-         res.status(500).json({ success: false, message: "Server error during leave rejection.", error: error.message });
+        res.status(500).json({ success: false, message: "Server error during leave rejection.", error: error.message });
         // next(error);
     }
 };
@@ -320,21 +319,21 @@ export const getLeaveHistory = async (req, res, next) => {
             const statuses = req.query.status.split(',');
             query.status = { $in: statuses };
         }
-         if (req.query.leaveType) {
+        if (req.query.leaveType) {
             query.leaveType = req.query.leaveType;
-         }
-         if (req.query.startDate) {
-             query.startDate = { $gte: new Date(req.query.startDate) }; // Find leaves starting on or after this date
-         }
-         if (req.query.endDate) {
-              // Find leaves ending on or before this date (adjust if needed for range query)
-              query.endDate = { $lte: new Date(req.query.endDate) };
-         }
-         // More robust date range query: find leaves that overlap with the query range
-         // if (req.query.rangeStart && req.query.rangeEnd) {
-         //    query.startDate = { $lte: new Date(req.query.rangeEnd) };
-         //    query.endDate = { $gte: new Date(req.query.rangeStart) };
-         // }
+        }
+        if (req.query.startDate) {
+            query.startDate = { $gte: new Date(req.query.startDate) }; // Find leaves starting on or after this date
+        }
+        if (req.query.endDate) {
+            // Find leaves ending on or before this date (adjust if needed for range query)
+            query.endDate = { $lte: new Date(req.query.endDate) };
+        }
+        // More robust date range query: find leaves that overlap with the query range
+        // if (req.query.rangeStart && req.query.rangeEnd) {
+        //    query.startDate = { $lte: new Date(req.query.rangeEnd) };
+        //    query.endDate = { $gte: new Date(req.query.rangeStart) };
+        // }
 
 
         // Pagination (example)
@@ -355,7 +354,7 @@ export const getLeaveHistory = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            message:'leave history fetched',
+            message: 'leave history fetched',
             count: leaves.length,
             total: totalLeaves,
             page,
@@ -377,7 +376,7 @@ export const getLeaveHistory = async (req, res, next) => {
  * @access  Private (Authenticated)
  */
 export const getLeaveBalance = async (req, res, next) => {
-     try {
+    try {
         let employeeIdToFetch = req.user._id; // Default to logged-in user
 
         // --- Authorization Check (Simplified for now) ---
@@ -385,35 +384,35 @@ export const getLeaveBalance = async (req, res, next) => {
         // TODO: Add role/permission check here later to ensure only authorized users can view others' balances
         if (req.params.employeeId) {
             // Basic check: ensure param is valid ObjectId before proceeding
-             if (!mongoose.Types.ObjectId.isValid(req.params.employeeId)) {
-                 return res.status(400).json({ success: false, message: "Invalid employee ID format in URL." });
-             }
-             // TODO: Add check: Is req.user Admin/HR OR is req.user the manager of req.params.employeeId?
-             // If not authorized: return res.status(403).json({ message: "Forbidden to access this balance." });
-             employeeIdToFetch = req.params.employeeId;
+            if (!mongoose.Types.ObjectId.isValid(req.params.employeeId)) {
+                return res.status(400).json({ success: false, message: "Invalid employee ID format in URL." });
+            }
+            // TODO: Add check: Is req.user Admin/HR OR is req.user the manager of req.params.employeeId?
+            // If not authorized: return res.status(403).json({ message: "Forbidden to access this balance." });
+            employeeIdToFetch = req.params.employeeId;
         }
-         // --- End Authorization Check ---
+        // --- End Authorization Check ---
 
-         const balance = await LeaveBalance.findOne({ employee: employeeIdToFetch })
-             .populate('employee', 'name employeeId'); // Populate basic info
+        const balance = await LeaveBalance.findOne({ employee: employeeIdToFetch })
+            .populate('employee', 'name employeeId'); // Populate basic info
 
-         if (!balance) {
-             // If balance doesn't exist, maybe create it? Or just report not found.
-             // For now, report not found. Creation could be part of employee onboarding.
-             console.log(`Leave balance record not found for employee: ${employeeIdToFetch}`);
-             return res.status(404).json({ success: false, message: "Leave balance record not found for this employee." });
-         }
+        if (!balance) {
+            // If balance doesn't exist, maybe create it? Or just report not found.
+            // For now, report not found. Creation could be part of employee onboarding.
+            console.log(`Leave balance record not found for employee: ${employeeIdToFetch}`);
+            return res.status(404).json({ success: false, message: "Leave balance record not found for this employee." });
+        }
 
-         // NOTE: We are NOT calling balance.performYearEndUpdate() here in a GET request.
-         // That should be handled by a scheduled job or a dedicated admin action.
+        // NOTE: We are NOT calling balance.performYearEndUpdate() here in a GET request.
+        // That should be handled by a scheduled job or a dedicated admin action.
 
-         res.status(200).json({ success: true, message: 'Leave balance is', balance });
+        res.status(200).json({ success: true, message: 'Leave balance is', balance });
 
-     } catch (error) {
-         console.error("Error fetching leave balance:", error);
-         res.status(500).json({ success: false, message: "Server error fetching leave balance.", error: error.message });
-         // next(error);
-     }
+    } catch (error) {
+        console.error("Error fetching leave balance:", error);
+        res.status(500).json({ success: false, message: "Server error fetching leave balance.", error: error.message });
+        // next(error);
+    }
 };
 
 
@@ -475,7 +474,7 @@ export const cancelLeave = async (req, res, next) => {
             } else {
                 let balanceField = '';
                 // Determine which balance field to refund
-                 switch (leave.leaveType) {
+                switch (leave.leaveType) {
                     case 'Casual': balanceField = 'casualLeaves'; break;
                     case 'Sick': balanceField = 'sickLeaves'; break;
                     case 'Earned': balanceField = 'earnedLeaves'; break;
@@ -483,7 +482,7 @@ export const cancelLeave = async (req, res, next) => {
                     case 'Paternity': balanceField = 'paternityLeaves'; break;
                     case 'Compensatory': balanceField = 'compensatoryLeaves'; break;
                     default: console.warn(`Cannot refund balance for unknown leave type ${leave.leaveType} on leave ${leaveId}`); break; // Should not happen
-                 }
+                }
 
                 if (balanceField) {
                     const currentBalanceValue = balance[balanceField]?.current || 0;
@@ -495,8 +494,8 @@ export const cancelLeave = async (req, res, next) => {
                     if (balanceUpdateResult.modifiedCount === 1) {
                         console.log(`Refunded ${leave.numberOfDays} days to ${balanceField} for employee ${employeeId} due to cancellation of leave ${leaveId}. New balance: ${update[`${balanceField}.current`]}`);
                     } else {
-                         console.error(`Failed to refund leave balance for employee ${employeeId} after cancelling leave ${leaveId}`);
-                         // Log critical error - leave is cancelled but balance not refunded
+                        console.error(`Failed to refund leave balance for employee ${employeeId} after cancelling leave ${leaveId}`);
+                        // Log critical error - leave is cancelled but balance not refunded
                     }
                 }
             }
@@ -511,5 +510,97 @@ export const cancelLeave = async (req, res, next) => {
         console.error("Error cancelling leave:", error);
         res.status(500).json({ success: false, message: "Server error during leave cancellation.", error: error.message });
         // next(error);
+    }
+};
+
+/**
+ * @desc    Create leave balance records for all employees who do not have one
+ * @route   POST /api/leaves/balance/init-all
+ * @access  Private (Admin/HR)
+ */
+export const createLeaveBalancesForAllEmployees = async (req, res) => {
+    try {
+        // Only allow Admin/HR
+        if (!['Admin', 'HR'].includes(req.user.role)) {
+            return res.status(403).json({ success: false, message: 'Forbidden: Only Admin or HR can perform this action.' });
+        }
+        // Get all employees
+        const employees = await Employee.find({}, '_id name email');
+        // Get all existing leave balance employee IDs
+        const existingBalances = await LeaveBalance.find({}, 'employee');
+        const existingEmployeeIds = new Set(existingBalances.map(b => b.employee.toString()));
+        // Filter employees who do not have a leave balance
+        const employeesWithoutBalance = employees.filter(emp => !existingEmployeeIds.has(emp._id.toString()));
+        if (employeesWithoutBalance.length === 0) {
+            return res.status(200).json({ success: true, message: 'All employees already have leave balances.' });
+        }
+        // Create leave balances for those employees
+        const newBalances = employeesWithoutBalance.map(emp => ({ employee: emp._id }));
+        const created = await LeaveBalance.insertMany(newBalances);
+        res.status(201).json({
+            success: true,
+            message: `Created leave balances for ${created.length} employees`,
+            created: created.map(b => b.employee)
+        });
+    } catch (error) {
+        console.error('Error creating leave balances for all employees:', error);
+        res.status(500).json({ success: false, message: 'Server error creating leave balances.', error: error.message });
+    }
+};
+
+/**
+ * @desc    Get pending leave requests for admin/HR/manager approval
+ * @route   GET /api/leaves/pending
+ * @access  Private (Admin/HR/Manager)
+ */
+export const getPendingLeaveRequests = async (req, res, next) => {
+    try {
+        const approverId = req.user._id;
+        const approverRole = req.user.role;
+
+        // Only Admin, HR, and Manager can view pending requests
+        if (!['Admin', 'HR', 'Manager'].includes(approverRole)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Forbidden: Only Admin, HR, and Manager can view pending leave requests.'
+            });
+        }
+
+        let query = { status: 'Pending' };
+
+        // If Manager, only show requests from their subordinates
+        if (approverRole === 'Manager') {
+            const subordinates = await Employee.find({ manager: approverId }, '_id').lean();
+            const subordinateIds = subordinates.map(emp => emp._id);
+            query.employee = { $in: subordinateIds };
+        }
+        // Admin and HR can see all pending requests
+
+        const pendingLeaves = await Leave.find(query)
+            .populate({
+                path: 'employee',
+                select: 'name email employeeId department position',
+                populate: {
+                    path: 'department',
+                    select: 'name'
+                }
+            })
+            .sort({ createdAt: -1 }) // Sort by newest first
+            .lean();
+
+        res.status(200).json({
+            success: true,
+            message: 'Pending leave requests fetched successfully',
+            count: pendingLeaves.length,
+            leaves: pendingLeaves
+        });
+
+    } catch (error) {
+        console.error('Error fetching pending leave requests:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error fetching pending leave requests.',
+            error: error.message
+        });
     }
 };

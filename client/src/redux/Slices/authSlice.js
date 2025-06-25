@@ -1,18 +1,21 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { apiConnector } from '../../services/apiConnector';
 import { AUTH_ENDPOINTS, EMPLOYEE_ENDPOINTS } from '../../services/apiEndpoints';
+import { useSelector } from 'react-redux';
 
-// Helper function to get initial state from localStorage
 const getInitialAuthState = () => {
     try {
         const userString = localStorage.getItem('worksphereUser');
+        const token = localStorage.getItem('worksphereToken');
         if (userString) {
             const user = JSON.parse(userString);
             return {
                 user,
+                token,
                 isAuthenticated: true,
                 loading: false,
                 error: null,
+                success: false,
                 otpSent: false,
                 emailVerified: user.isVerified || false,
             };
@@ -22,15 +25,15 @@ const getInitialAuthState = () => {
     }
     return {
         user: null,
+        token: null,
         isAuthenticated: false,
         loading: false,
         error: null,
+        success: false,
         otpSent: false,
         emailVerified: false,
     };
 };
-
-const initialState = getInitialAuthState();
 
 // Async Thunks for Authentication
 // 1. Login User
@@ -73,7 +76,7 @@ export const signupUser = createAsyncThunk(
 // 3. Send OTP
 export const sendOtp = createAsyncThunk(
     'auth/sendOtp',
-    async (emailData, { rejectWithValue }) => { // emailData = { email }
+    async (emailData, { rejectWithValue }) => {
         try {
             const response = await apiConnector('POST', AUTH_ENDPOINTS.SEND_OTP_API, emailData);
             if (!response.data.success) {
@@ -90,7 +93,7 @@ export const sendOtp = createAsyncThunk(
 // 4. Verify OTP
 export const verifyOtp = createAsyncThunk(
     'auth/verifyOtp',
-    async (otpData, { rejectWithValue }) => { // otpData = { email, otp }
+    async (otpData, { rejectWithValue }) => {
         try {
             const response = await apiConnector('POST', AUTH_ENDPOINTS.VERIFY_OTP_API, otpData);
             if (!response.data.success) {
@@ -107,7 +110,7 @@ export const verifyOtp = createAsyncThunk(
 // 5. Forgot Password
 export const forgotPassword = createAsyncThunk(
     'auth/forgotPassword',
-    async (emailData, { rejectWithValue }) => { // emailData = { email }
+    async (emailData, { rejectWithValue }) => {
         try {
             const response = await apiConnector('POST', AUTH_ENDPOINTS.FORGOT_PASSWORD_API, emailData);
             if (!response.data.success) {
@@ -124,7 +127,7 @@ export const forgotPassword = createAsyncThunk(
 // 6. Reset Password
 export const resetPassword = createAsyncThunk(
     'auth/resetPassword',
-    async ({ token, passwordData }, { rejectWithValue }) => { // passwordData = { password, confirmPassword }
+    async ({ token, passwordData }, { rejectWithValue }) => {
         try {
             const response = await apiConnector('PUT', AUTH_ENDPOINTS.RESET_PASSWORD_API(token), passwordData);
             if (!response.data.success) {
@@ -172,7 +175,7 @@ export const initiateGoogleAuth = createAsyncThunk(
         try {
             // Redirect to Google OAuth endpoint
             window.location.href = AUTH_ENDPOINTS.GOOGLE_AUTH_INIT_API;
-            return null; // This won't be reached due to redirect
+            return null;
         } catch (error) {
             return rejectWithValue('Failed to initiate Google authentication', error);
         }
@@ -183,7 +186,7 @@ export const completeProfile = createAsyncThunk(
     'auth/completeProfile',
     async (profileData, { rejectWithValue }) => {
         try {
-            const response = await apiConnector('PUT',EMPLOYEE_ENDPOINTS.COMPLETE_PROFILE_API, profileData);
+            const response = await apiConnector('PUT', EMPLOYEE_ENDPOINTS.COMPLETE_PROFILE_API, profileData);
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Profile completion failed');
@@ -208,6 +211,19 @@ export const handleGoogleAuthCallback = createAsyncThunk(
     }
 );
 
+
+export const logoutUserAsync = createAsyncThunk(
+    'auth/logoutUserAsync',
+    async (_, { rejectWithValue }) => {
+        try {
+            await apiConnector('POST', AUTH_ENDPOINTS.LOGOUT_API);
+            return true;
+        } catch {
+            return rejectWithValue('Logout failed');
+        }
+    }
+);
+
 // Auth Slice Definition
 const authSlice = createSlice({
     name: 'auth',
@@ -215,16 +231,24 @@ const authSlice = createSlice({
     reducers: {
         logoutUser: (state) => {
             state.user = null;
+            state.token = null;
             state.isAuthenticated = false;
             state.loading = false;
             state.error = null;
+            state.success = false;
             state.otpSent = false;
             state.emailVerified = false;
             localStorage.removeItem('worksphereUser');
+            localStorage.removeItem('worksphereToken');
+            // Optionally clear other localStorage/sessionStorage items
+            // Optionally: document.cookie = ... (for non-httpOnly cookies)
             console.log("User logged out, localStorage cleared.");
         },
         clearAuthError: (state) => {
             state.error = null;
+        },
+        clearAuthSuccess: (state) => {
+            state.success = false;
         },
         setCredentials: (state, action) => {
             const { user } = action.payload;
@@ -247,7 +271,9 @@ const authSlice = createSlice({
                 state.loading = false;
                 state.isAuthenticated = true;
                 state.user = action.payload.user;
+                state.token = action.payload.accessToken;
                 localStorage.setItem('worksphereUser', JSON.stringify(action.payload.user));
+                localStorage.setItem('worksphereToken', action.payload.accessToken);
                 console.log("Login successful, user stored:", action.payload.user);
             })
             .addCase(loginUser.rejected, (state, action) => {
@@ -255,7 +281,9 @@ const authSlice = createSlice({
                 state.error = action.payload || 'Login failed. Please try again.'; // Use payload from rejectWithValue
                 state.isAuthenticated = false;
                 state.user = null;
+                state.token = null;
                 localStorage.removeItem('worksphereUser');
+                localStorage.removeItem('worksphereToken');
             })
 
             // Signup User
@@ -314,30 +342,36 @@ const authSlice = createSlice({
             .addCase(forgotPassword.pending, (state) => {
                 state.loading = true;
                 state.error = null;
+                state.success = false;
             })
             .addCase(forgotPassword.fulfilled, (state, action) => {
                 state.loading = false;
+                state.success = true;
                 console.log("Forgot password request successful:", action.payload);
                 // Usually just show a message to the user
             })
             .addCase(forgotPassword.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload || 'Forgot password request failed.';
+                state.success = false;
             })
 
             // Reset Password
             .addCase(resetPassword.pending, (state) => {
                 state.loading = true;
                 state.error = null;
+                state.success = false;
             })
             .addCase(resetPassword.fulfilled, (state, action) => {
                 state.loading = false;
+                state.success = true;
                 console.log("Password reset successful:", action.payload);
                 // User should now be able to login with new password
             })
             .addCase(resetPassword.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload || 'Password reset failed.';
+                state.success = false;
             })
 
             // Refresh Token
@@ -380,15 +414,19 @@ const authSlice = createSlice({
                 state.loading = false;
                 state.isAuthenticated = true;
                 state.user = action.payload.user;
+                state.token = action.payload.accessToken;
                 state.emailVerified = action.payload.user.isVerified;
                 localStorage.setItem('worksphereUser', JSON.stringify(action.payload.user));
+                localStorage.setItem('worksphereToken', action.payload.accessToken);
             })
             .addCase(handleGoogleAuthCallback.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload || 'Google authentication failed';
                 state.isAuthenticated = false;
                 state.user = null;
+                state.token = null;
                 localStorage.removeItem('worksphereUser');
+                localStorage.removeItem('worksphereToken');
             })
             // COMPLETE PROFILE
             .addCase(completeProfile.pending, (state) => {
@@ -405,10 +443,40 @@ const authSlice = createSlice({
             .addCase(completeProfile.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
+            })
+            .addCase(logoutUserAsync.fulfilled, (state) => {
+                state.user = null;
+                state.token = null;
+                state.isAuthenticated = false;
+                state.loading = false;
+                state.error = null;
+                state.success = false;
+                state.otpSent = false;
+                state.emailVerified = false;
+                localStorage.removeItem('worksphereUser');
+                localStorage.removeItem('worksphereToken');
+            })
+            .addCase(logoutUserAsync.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || 'Logout failed.';
             });
     },
 });
 
-export const { logoutUser, clearAuthError, setCredentials } = authSlice.actions;
+export const { logoutUser, clearAuthError, clearAuthSuccess, setCredentials } = authSlice.actions;
 
 export default authSlice.reducer;
+
+// Selector for permissions
+export const selectPermissions = (state) => state.auth.user?.permissions || [];
+
+// Custom hook for permission check
+export const useHasPermission = (permission) => {
+    const permissions = useSelector(selectPermissions);
+    return permissions.includes(permission);
+};
+
+// Utility function for use outside React components
+export const hasPermission = (permissions, permission) => {
+    return Array.isArray(permissions) && permissions.includes(permission);
+};

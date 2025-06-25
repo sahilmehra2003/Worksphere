@@ -6,6 +6,7 @@ import { LEAVE_ENDPOINTS, CALENDAR_ENDPOINTS } from '../../services/apiEndpoints
 const initialState = {
     leaveBalance: null,
     leaveHistory: [],
+    pendingLeaveRequests: [], // For admin/HR/manager to view pending requests
     companyCalendar: { // Store fetched calendar data relevant for leave calculations
         countryCode: null,
         holidays: [],
@@ -14,19 +15,32 @@ const initialState = {
     // Loading states
     isLoadingBalance: false,
     isLoadingHistory: false,
+    isLoadingPendingRequests: false, // For fetching pending leave requests
     isLoadingCalendar: false, // For fetching company calendar (holidays/weekends)
     isApplyingLeave: false,
     isCancellingLeave: false, // General flag for cancellation operation
     cancellingLeaveId: null, // Specific ID for UI feedback during cancellation
+    isCreatingLeaveBalances: false, // For creating leave balances for all employees
+    isApprovingLeave: false, // For approving leave requests
+    isRejectingLeave: false, // For rejecting leave requests
+    approvingLeaveId: null, // Specific ID for UI feedback during approval
+    rejectingLeaveId: null, // Specific ID for UI feedback during rejection
     // Error states
     errorBalance: null,
     errorHistory: null,
+    errorPendingRequests: null, // For pending leave requests
     errorCalendar: null,
     errorApplyingLeave: null,
     errorCancellingLeave: null,
+    errorCreatingLeaveBalances: null, // For creating leave balances for all employees
+    errorApprovingLeave: null, // For approving leave requests
+    errorRejectingLeave: null, // For rejecting leave requests
     // Success flags for operations
     applyLeaveSuccess: false,
     cancelLeaveSuccess: false,
+    createLeaveBalancesSuccess: false, // For creating leave balances for all employees
+    approveLeaveSuccess: false, // For approving leave requests
+    rejectLeaveSuccess: false, // For rejecting leave requests
     // Pagination for leave history
     historyPagination: {
         currentPage: 1,
@@ -131,6 +145,74 @@ export const cancelLeaveRequest = createAsyncThunk(
     }
 );
 
+// 6. Create Leave Balances for All Employees (Admin/HR only)
+export const createLeaveBalancesForAllEmployees = createAsyncThunk(
+    'leave/createBalancesForAll',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('POST', LEAVE_ENDPOINTS.CREATE_LEAVE_BALANCES_FOR_ALL_EMPLOYEES_API);
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to create leave balances for all employees.');
+            }
+            return response.data; // Returns { success, message, created: [...] }
+        } catch (error) {
+            const message = error.response?.data?.message || error.message || 'Failed to create leave balances for all employees.';
+            return rejectWithValue(message);
+        }
+    }
+);
+
+// 7. Fetch Pending Leave Requests (Admin/HR/Manager only)
+export const fetchPendingLeaveRequests = createAsyncThunk(
+    'leave/fetchPendingRequests',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('GET', LEAVE_ENDPOINTS.GET_PENDING_LEAVE_REQUESTS_API);
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to fetch pending leave requests.');
+            }
+            return response.data.leaves || []; // Returns array of pending leave requests
+        } catch (error) {
+            const message = error.response?.data?.message || error.message || 'Failed to fetch pending leave requests.';
+            return rejectWithValue(message);
+        }
+    }
+);
+
+// 8. Approve Leave Request (Admin/HR/Manager only)
+export const approveLeaveRequest = createAsyncThunk(
+    'leave/approve',
+    async (leaveId, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('PUT', LEAVE_ENDPOINTS.APPROVE_LEAVE_API(leaveId));
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to approve leave request.');
+            }
+            return { leaveId, ...response.data }; // Include leaveId for potential UI updates
+        } catch (error) {
+            const message = error.response?.data?.message || error.message || 'Failed to approve leave request.';
+            return rejectWithValue(message);
+        }
+    }
+);
+
+// 9. Reject Leave Request (Admin/HR/Manager only)
+export const rejectLeaveRequest = createAsyncThunk(
+    'leave/reject',
+    async ({ leaveId, rejectionReason }, { rejectWithValue }) => {
+        try {
+            const response = await apiConnector('PUT', LEAVE_ENDPOINTS.REJECT_LEAVE_API(leaveId), { rejectionReason });
+            if (!response.data.success) {
+                return rejectWithValue(response.data.message || 'Failed to reject leave request.');
+            }
+            return { leaveId, ...response.data }; // Include leaveId for potential UI updates
+        } catch (error) {
+            const message = error.response?.data?.message || error.message || 'Failed to reject leave request.';
+            return rejectWithValue(message);
+        }
+    }
+);
+
 const leaveSlice = createSlice({
     name: 'leave',
     initialState,
@@ -143,6 +225,17 @@ const leaveSlice = createSlice({
             state.errorCancellingLeave = null;
             state.applyLeaveSuccess = false;
             state.cancelLeaveSuccess = false;
+            state.isCreatingLeaveBalances = false;
+            state.errorCreatingLeaveBalances = null;
+            state.createLeaveBalancesSuccess = false;
+            state.isApprovingLeave = false;
+            state.isRejectingLeave = false;
+            state.approvingLeaveId = null;
+            state.rejectingLeaveId = null;
+            state.errorApprovingLeave = null;
+            state.errorRejectingLeave = null;
+            state.approveLeaveSuccess = false;
+            state.rejectLeaveSuccess = false;
         },
         // If pagination is handled by UserLeavePage local state, this might not be needed
         // setLeaveHistoryPage: (state, action) => {
@@ -232,6 +325,65 @@ const leaveSlice = createSlice({
                 state.isCancellingLeave = false;
                 state.cancellingLeaveId = null;
                 state.errorCancellingLeave = action.payload;
+            })
+
+            // Create Leave Balances for All Employees
+            .addCase(createLeaveBalancesForAllEmployees.pending, (state) => {
+                state.isCreatingLeaveBalances = true;
+                state.errorCreatingLeaveBalances = null;
+            })
+            .addCase(createLeaveBalancesForAllEmployees.fulfilled, (state) => {
+                state.isCreatingLeaveBalances = false;
+                state.createLeaveBalancesSuccess = true;
+            })
+            .addCase(createLeaveBalancesForAllEmployees.rejected, (state, action) => {
+                state.isCreatingLeaveBalances = false;
+                state.errorCreatingLeaveBalances = action.payload;
+            })
+
+            // Fetch Pending Leave Requests
+            .addCase(fetchPendingLeaveRequests.pending, (state) => {
+                state.isLoadingPendingRequests = true;
+                state.errorPendingRequests = null;
+            })
+            .addCase(fetchPendingLeaveRequests.fulfilled, (state, action) => {
+                state.isLoadingPendingRequests = false;
+                state.pendingLeaveRequests = action.payload;
+            })
+            .addCase(fetchPendingLeaveRequests.rejected, (state, action) => {
+                state.isLoadingPendingRequests = false;
+                state.errorPendingRequests = action.payload;
+                state.pendingLeaveRequests = [];
+            })
+
+            // Approve Leave Request
+            .addCase(approveLeaveRequest.pending, (state) => {
+                state.isApprovingLeave = true;
+                state.errorApprovingLeave = null;
+                state.approveLeaveSuccess = false;
+            })
+            .addCase(approveLeaveRequest.fulfilled, (state) => {
+                state.isApprovingLeave = false;
+                state.approveLeaveSuccess = true;
+            })
+            .addCase(approveLeaveRequest.rejected, (state, action) => {
+                state.isApprovingLeave = false;
+                state.errorApprovingLeave = action.payload;
+            })
+
+            // Reject Leave Request
+            .addCase(rejectLeaveRequest.pending, (state) => {
+                state.isRejectingLeave = true;
+                state.errorRejectingLeave = null;
+                state.rejectLeaveSuccess = false;
+            })
+            .addCase(rejectLeaveRequest.fulfilled, (state) => {
+                state.isRejectingLeave = false;
+                state.rejectLeaveSuccess = true;
+            })
+            .addCase(rejectLeaveRequest.rejected, (state, action) => {
+                state.isRejectingLeave = false;
+                state.errorRejectingLeave = action.payload;
             });
     },
 });

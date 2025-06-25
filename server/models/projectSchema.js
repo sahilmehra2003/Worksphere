@@ -32,7 +32,7 @@ const projectSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ProjectTeam',
     default: []
-  }], // Empty if no team is assigned
+  }], 
   departmentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Department'

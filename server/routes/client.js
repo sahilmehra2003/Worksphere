@@ -6,14 +6,14 @@ import { authN } from '../middlewares/auth.js';
 const router = express.Router();
 
 
-router.get('/clients', getAllClients);
-router.get('/client/:id', getClientById);
-router.post('/client/create', createClient);
-router.put('/client/update/:id', updateClient)
+router.get('/clients', authN, checkPermission(Permissions.VIEW_CLIENT), getAllClients);
+router.get('/client/:id', authN, checkPermission(Permissions.VIEW_CLIENT), getClientById);
+router.post('/client/create', authN, checkPermission(Permissions.CREATE_CLIENT), createClient);
+router.put('/client/update/:id', authN, checkPermission(Permissions.UPDATE_CLIENT), updateClient);
 router.patch(
     '/deactivateClient/:clientId',
     authN,
-    checkPermission(Permissions.MANAGE_CLIENTS),
+    checkPermission(Permissions.DELETE_CLIENT),
     deactivateClient
 );
 export default router;

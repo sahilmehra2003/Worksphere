@@ -29,6 +29,7 @@ import profileimg from '../assets/profileimg.jpg';
 // Redux
 import { useDispatch } from 'react-redux';
 import { setMode } from '../redux/Slices/themeSlice';
+import { logoutUserAsync } from '../redux/Slices/authSlice';
 
 const Navbar = ({ isSidebarOpen, setIsSidebarOpen }) => {
   const navigate = useNavigate();
@@ -64,8 +65,8 @@ const Navbar = ({ isSidebarOpen, setIsSidebarOpen }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/home');
+    dispatch(logoutUserAsync());
+    navigate('/login');
     setAnchorEl(null);
   };
 

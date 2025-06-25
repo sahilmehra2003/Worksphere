@@ -1,38 +1,35 @@
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { updateTransactionTags } from '../redux/Slices/transactionSlice';
 import PropTypes from 'prop-types';
+import {
+    Box, Typography, Paper, Divider, Chip, Stack,
+    Grow, IconButton, TextField, Button
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import EditIcon from '@mui/icons-material/Edit';
+import DoneIcon from '@mui/icons-material/Done';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+// import { updateTransactionTags } from '../redux/Slices/transactionSlice';
 
 const TransactionTags = ({ transaction }) => {
-    const dispatch = useDispatch();
+    const theme = useTheme();
+    // const dispatch = useDispatch();
     const [newTag, setNewTag] = useState('');
     const [isEditing, setIsEditing] = useState(false);
 
+    // Un-comment the dispatch logic once your slice is ready.
     const handleAddTag = async () => {
         if (!newTag.trim()) return;
-
         const updatedTags = [...(transaction.tags || []), newTag.trim()];
-        try {
-            await dispatch(updateTransactionTags({
-                transactionId: transaction._id,
-                tags: updatedTags
-            })).unwrap();
-            setNewTag('');
-        } catch (error) {
-            console.error('Failed to add tag:', error);
-        }
+        console.log("Adding tag:", { transactionId: transaction._id, tags: updatedTags });
+        // await dispatch(updateTransactionTags({ transactionId: transaction._id, tags: updatedTags })).unwrap();
+        setNewTag('');
     };
 
     const handleRemoveTag = async (tagToRemove) => {
         const updatedTags = (transaction.tags || []).filter(tag => tag !== tagToRemove);
-        try {
-            await dispatch(updateTransactionTags({
-                transactionId: transaction._id,
-                tags: updatedTags
-            })).unwrap();
-        } catch (error) {
-            console.error('Failed to remove tag:', error);
-        }
+        console.log("Removing tag:", { transactionId: transaction._id, tags: updatedTags });
+        // await dispatch(updateTransactionTags({ transactionId: transaction._id, tags: updatedTags })).unwrap();
     };
 
     const handleKeyPress = (e) => {
@@ -43,60 +40,58 @@ const TransactionTags = ({ transaction }) => {
     };
 
     return (
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium">Tags</h3>
-                <button
-                    onClick={() => setIsEditing(!isEditing)}
-                    className="text-blue-500 hover:text-blue-600"
-                >
-                    {isEditing ? 'Done' : 'Edit'}
-                </button>
-            </div>
+        <Grow in={true}>
+            <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="h5" component="h3" sx={{ fontWeight: 'bold' }}>
+                        Tags
+                    </Typography>
+                    <IconButton onClick={() => setIsEditing(!isEditing)} color="primary">
+                        {isEditing ? <DoneIcon /> : <EditIcon />}
+                    </IconButton>
+                </Stack>
+                <Divider sx={{ mb: 2 }} />
 
-            {isEditing && (
-                <div className="mb-4">
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
+                {isEditing && (
+                    <Stack direction="row" spacing={1} mb={2}>
+                        <TextField
+                            label="Add a new tag"
+                            variant="outlined"
+                            size="small"
+                            fullWidth
                             value={newTag}
                             onChange={(e) => setNewTag(e.target.value)}
                             onKeyPress={handleKeyPress}
-                            placeholder="Add a new tag"
-                            className="flex-grow border rounded p-2"
                         />
-                        <button
+                        <Button
                             onClick={handleAddTag}
-                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                            variant="contained"
+                            startIcon={<AddCircleOutlineIcon />}
                         >
                             Add
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-                {transaction.tags?.map((tag, index) => (
-                    <div
-                        key={index}
-                        className="bg-gray-100 px-3 py-1 rounded-full flex items-center gap-2"
-                    >
-                        <span>{tag}</span>
-                        {isEditing && (
-                            <button
-                                onClick={() => handleRemoveTag(tag)}
-                                className="text-gray-500 hover:text-red-500"
-                            >
-                                ×
-                            </button>
-                        )}
-                    </div>
-                ))}
-                {(!transaction.tags || transaction.tags.length === 0) && (
-                    <p className="text-gray-500">No tags added</p>
+                        </Button>
+                    </Stack>
                 )}
-            </div>
-        </div>
+
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {transaction.tags && transaction.tags.length > 0 ? (
+                        transaction.tags.map((tag, index) => (
+                            <Chip
+                                key={index}
+                                label={tag}
+                                onDelete={isEditing ? () => handleRemoveTag(tag) : undefined}
+                                color="primary"
+                                variant="outlined"
+                            />
+                        ))
+                    ) : (
+                        <Typography color="text.secondary" sx={{ width: '100%', textAlign: 'center', p: 2 }}>
+                            No tags added.
+                        </Typography>
+                    )}
+                </Box>
+            </Paper>
+        </Grow>
     );
 };
 
@@ -107,4 +102,4 @@ TransactionTags.propTypes = {
     }).isRequired
 };
 
-export default TransactionTags; 
+export default TransactionTags;

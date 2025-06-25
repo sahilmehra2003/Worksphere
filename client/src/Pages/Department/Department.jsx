@@ -90,7 +90,7 @@ const DepartmentSlider = () => {
   const handleOpenAddModal = () => setShowAddModal(true);
   const handleCloseAddModal = () => setShowAddModal(false);
 
-  const handleOpenEditModal = () => { // No need to pass department, it uses departmentToDisplay
+  const handleOpenEditModal = () => { 
     if (departmentToDisplay) {
       setShowEditModal(true);
     } else {
@@ -106,8 +106,8 @@ const DepartmentSlider = () => {
     }
   };
 
-  const handleOperationCompleted = () => { // Unified callback for modals
-    dispatch(fetchAllDepartments()); // Re-fetch all after add/edit
+  const handleOperationCompleted = () => { 
+    dispatch(fetchAllDepartments()); 
   };
 
 
@@ -164,7 +164,7 @@ const DepartmentSlider = () => {
         />
       )}
 
-      {isAdmin && departmentToDisplay && ( // Ensure departmentToDisplay exists before rendering Edit Modal
+      {isAdmin && departmentToDisplay && ( 
         <EditDepartmentModal
           open={showEditModal}
           onClose={handleCloseEditModal}
@@ -173,8 +173,8 @@ const DepartmentSlider = () => {
         />
       )}
 
-      {/* Main Department Display Area */}
-      {departmentToDisplay ? ( // Only show if a department is selected/available
+      
+      {departmentToDisplay ? ( 
         <Paper
           elevation={3}
           sx={{
@@ -183,9 +183,9 @@ const DepartmentSlider = () => {
             alignItems: "center",
             padding: theme.spacing(3),
             borderRadius: theme.shape.borderRadius,
-            backgroundColor: theme.palette.background.default, // Your original style
-            border: `1px solid ${theme.palette.primary.main}`, // Your original style
-            boxShadow: theme.shadows[3], // Your original style
+            backgroundColor: theme.palette.background.default, 
+            border: `1px solid ${theme.palette.primary.main}`,
+            boxShadow: theme.shadows[3], 
           }}
         >
           <FlexBetween width="100%" mb={2}>
@@ -202,7 +202,7 @@ const DepartmentSlider = () => {
               {departmentToDisplay.name || "Department Name"}
             </Typography>
             <Button
-              variant="contained" // Your original style
+              variant="contained" 
               color="primary"
               onClick={handleNext}
               endIcon={<ArrowForwardIosIcon />}

@@ -4,12 +4,10 @@ import { Revenue } from "../models/revenueSchema.model.js";
 import { hasPermission } from "../config/permission.config.js";
 import mongoose from 'mongoose';
 import Client from '../models/clientSchema.js';
-import Project from '../models/projectSchema.js';
 
-// Helper function to get month name from date
-const getMonthName = (date) => {
-    return date.toLocaleString('default', { month: 'long' });
-};
+import Department from "../models/departmentSchema.js";
+import Employee from "../models/employeeSchema.js";
+
 
 // Helper function to check if user is in Finance department
 const isFinanceDepartment = async (userId) => {
@@ -55,227 +53,86 @@ const validateExpenseApproval = async (user) => {
     return false;
 };
 
-// Create a new expense
-export const createExpense = async (req, res) => {
+export const getAvailableYears = async (req, res) => {
     try {
-        // Validate user access
-        if (!await validateExpenseAccess(req.user)) {
-            return res.status(403).json({
-                success: false,
-                error: "You don't have permission to create expenses"
+        const years = await FinancialPeriodRecord.distinct('year');
+
+        // If no years are found, return an empty array.
+        if (!years || years.length === 0) {
+            return res.status(200).json({
+                success: true,
+                data: [],
+                message: "No years with financial data found."
             });
         }
 
-        const expenseData = {
-            ...req.body,
-            createdBy: req.user._id,
-            status: "Pending"
-        };
-
-        const expense = new Expense(expenseData);
-        await expense.save();
-
-        // Update financial period
-        const expenseDate = new Date(expenseData.date);
-        const monthName = expenseDate.toLocaleString('default', { month: 'long' });
-        const year = expenseDate.getFullYear();
-
-        const financialPeriod = await FinancialPeriodRecord.findOrCreateRecord({
-            year,
-            monthName,
-            departmentId: expenseData.department
-        });
-
-        await financialPeriod.addExpenseReference(expense);
-
-        // Update related documents
-        if (expenseData.project) {
-            // Update project's expenses array and totalExpenses
-            await Project.findByIdAndUpdate(
-                expenseData.project,
-                {
-                    $push: { expenses: expense._id },
-                    $inc: { totalExpenses: expenseData.amount }
-                }
-            );
-        }
-
-        if (expenseData.client) {
-            // Update client's expenses array and clientExpenses
-            await Client.findByIdAndUpdate(
-                expenseData.client,
-                {
-                    $push: { expenses: expense._id },
-                    $inc: { clientExpenses: expenseData.amount }
-                }
-            );
-        }
-
-        return res.status(201).json({
-            success: true,
-            data: expense,
-            message: "Expense created successfully"
-        });
-    } catch (error) {
-        return res.status(400).json({
-            success: false,
-            error: error.message
-        });
-    }
-};
-
-// Create a new revenue
-export const createRevenue = async (req, res) => {
-    try {
-        // Validate user access
-        if (!await validateExpenseAccess(req.user)) {
-            return res.status(403).json({
-                success: false,
-                error: "You don't have permission to create revenue entries"
-            });
-        }
-
-        const revenueData = {
-            ...req.body,
-            createdBy: req.user._id,
-            status: "Expected"
-        };
-
-        const revenue = new Revenue(revenueData);
-        await revenue.save();
-
-        // Update financial period
-        const revenueDate = new Date(revenueData.date);
-        const monthName = revenueDate.toLocaleString('default', { month: 'long' });
-        const year = revenueDate.getFullYear();
-
-        const financialPeriod = await FinancialPeriodRecord.findOrCreateRecord({
-            year,
-            monthName,
-            departmentId: revenueData.department
-        });
-
-        await financialPeriod.addRevenueReference(revenue);
-
-        // Update related documents
-        if (revenueData.project) {
-            // Update project's revenues array and revenueGenerated
-            await Project.findByIdAndUpdate(
-                revenueData.project,
-                {
-                    $push: { revenues: revenue._id },
-                    $inc: { revenueGenerated: revenueData.amount }
-                }
-            );
-        }
-
-        if (revenueData.client) {
-            // Update client's revenues array and totalRevenue
-            await Client.findByIdAndUpdate(
-                revenueData.client,
-                {
-                    $push: { revenues: revenue._id },
-                    $inc: { totalRevenue: revenueData.amount }
-                }
-            );
-        }
-
-        return res.status(201).json({
-            success: true,
-            data: revenue,
-            message: "Revenue created successfully"
-        });
-    } catch (error) {
-        return res.status(400).json({
-            success: false,
-            error: error.message
-        });
-    }
-};
-
-// Approve an expense
-export const approveExpense = async (req, res) => {
-    try {
-        const { expenseId } = req.params;
-        const { status, notes } = req.body;
-
-        // Validate user access
-        if (!await validateExpenseApproval(req.user)) {
-            return res.status(403).json({
-                success: false,
-                error: "You don't have permission to approve expenses"
-            });
-        }
-
-        const expense = await Expense.findById(expenseId);
-        if (!expense) {
-            return res.status(404).json({
-                success: false,
-                error: "Expense not found"
-            });
-        }
-
-        expense.status = status;
-        expense.approvedBy = req.user._id;
-        expense.approvalDate = new Date();
-        if (notes) expense.notes = notes;
-
-        await expense.save();
+        
+        const sortedYears = years.sort((a, b) => b - a);
 
         return res.status(200).json({
             success: true,
-            data: expense,
-            message: "Expense status updated successfully"
+            data: sortedYears
         });
+
     } catch (error) {
-        return res.status(400).json({
+        console.error("Error fetching available years:", error);
+        return res.status(500).json({
             success: false,
-            error: error.message
+            error: "Server error while fetching available years."
         });
     }
 };
 
-// Approve a revenue
-export const approveRevenue = async (req, res) => {
+export const updateFinancialPeriod = async (req, res) => {
     try {
-        const { revenueId } = req.params;
-        const { status, notes } = req.body;
+        const { periodId } = req.params;
+        const updateData = req.body;
 
-        // Validate user access
-        if (!await validateExpenseApproval(req.user)) {
-            return res.status(403).json({
-                success: false,
-                error: "You don't have permission to approve revenue entries"
-            });
+        const period = await FinancialPeriodRecord.findByIdAndUpdate(
+            periodId,
+            updateData,
+            { new: true, runValidators: true }
+        );
+
+        if (!period) {
+            return res.status(404).json({ success: false, message: "Financial period not found" });
         }
-
-        const revenue = await Revenue.findById(revenueId);
-        if (!revenue) {
-            return res.status(404).json({
-                success: false,
-                error: "Revenue entry not found"
-            });
-        }
-
-        revenue.status = status;
-        revenue.approvedBy = req.user._id;
-        revenue.approvalDate = new Date();
-        if (notes) revenue.notes = notes;
-
-        await revenue.save();
 
         return res.status(200).json({
             success: true,
-            data: revenue,
-            message: "Revenue status updated successfully"
+            message: "Financial period updated successfully.",
+            data: period
         });
     } catch (error) {
-        return res.status(400).json({
-            success: false,
-            error: error.message
-        });
+        return res.status(400).json({ success: false, error: error.message });
     }
 };
+
+
+
+export const deleteFinancialPeriod = async (req, res) => {
+    try {
+        const { periodId } = req.params;
+
+        const period = await FinancialPeriodRecord.findByIdAndUpdate(
+            periodId,
+            { isDelete: true },
+            { new: true }
+        );
+
+        if (!period) {
+            return res.status(404).json({ success: false, message: "Financial period not found" });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Financial period deleted successfully."
+        });
+    } catch (error) {
+        return res.status(400).json({ success: false, error: error.message });
+    }
+};
+
 
 // Get monthly report
 export const getMonthlyReport = async (req, res) => {
@@ -342,6 +199,102 @@ export const getMonthlyReport = async (req, res) => {
         });
     }
 };
+
+
+
+export const getAnnualTransactions = async (req, res) => {
+    try {
+        const { year } = req.query;
+
+        // 1. Validate input
+        const yearNum = parseInt(year);
+        if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) {
+            return res.status(400).json({ success: false, error: "Valid year (e.g., 2023) is required." });
+        }
+
+        // 2. Permission check: Only users with VIEW_FINANCE_REPORTS can access this
+        const user = req.user;
+        if (!user) {
+            return res.status(403).json({
+                success: false,
+                error: "You don't have permission to view annual transaction reports."
+            });
+        }
+
+        // Define the date range for the entire year
+        const startDate = new Date(yearNum, 0, 1); // January 1st of the specified year
+        const endDate = new Date(yearNum + 1, 0, 1); // January 1st of the next year (exclusive)
+
+        // 3. Fetch all expenses and revenues for the specified year
+        const annualExpenses = await Expense.find({
+            date: { $gte: startDate, $lt: endDate }
+        })
+            .populate('department', 'name')
+            .populate('project', 'title')
+            .populate('client', 'name')
+            .populate('createdBy', 'name');
+
+        const annualRevenues = await Revenue.find({
+            date: { $gte: startDate, $lt: endDate }
+        })
+            .populate('department', 'name')
+            .populate('project', 'title')
+            .populate('client', 'name')
+            .populate('createdBy', 'name');
+
+        // 4. Aggregate summary information
+        const totalAnnualExpenses = annualExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+        const totalAnnualRevenues = annualRevenues.reduce((sum, rev) => sum + (rev.amount || 0), 0);
+        const annualNetProfit = totalAnnualRevenues - totalAnnualExpenses;
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                year: yearNum,
+                summary: {
+                    totalAnnualExpenses,
+                    totalAnnualRevenues,
+                    annualNetProfit
+                },
+                expenses: annualExpenses.map(exp => ({
+                    _id: exp._id,
+                    category: exp.category,
+                    amount: exp.amount,
+                    description: exp.description,
+                    date: exp.date,
+                    status: exp.status,
+                    department: exp.department ? { _id: exp.department._id, name: exp.department.name } : null,
+                    project: exp.project ? { _id: exp.project._id, title: exp.project.title } : null,
+                    client: exp.client ? { _id: exp.client._id, name: exp.client.name } : null,
+                    createdBy: exp.createdBy ? { _id: exp.createdBy._id, name: exp.createdBy.name } : null,
+                    type: 'expense'
+                })),
+                revenues: annualRevenues.map(rev => ({
+                    _id: rev._id,
+                    category: rev.category,
+                    amount: rev.amount,
+                    description: rev.description,
+                    date: rev.date,
+                    status: rev.status,
+                    client: rev.client ? { _id: rev.client._id, name: rev.client.name } : null,
+                    project: rev.project ? { _id: rev.project._id, title: rev.project.title } : null,
+                    department: rev.department ? { _id: rev.department._id, name: rev.department.name } : null,
+                    createdBy: rev.createdBy ? { _id: rev.createdBy._id, name: rev.createdBy.name } : null,
+                    type: 'revenue'
+                }))
+            },
+            message: `Annual transaction data for ${yearNum} fetched successfully.`
+        });
+
+    } catch (error) {
+        console.error("Error fetching annual transactions:", error);
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
 
 // Get department-wise financial summary
 export const getDepartmentFinancialSummary = async (req, res) => {
@@ -698,3 +651,32 @@ export const getClientFinancialSummary = async (req, res) => {
         });
     }
 };
+
+
+
+export const getPendingFinancialPeriodReports = async (req, res) => {
+    try {
+        const pendingFinancialPeriodReport = await FinancialPeriodRecord.find({
+            status: { $in: ['ReviewPending', 'Open'] }
+        })
+            .populate('preparedBy', 'name')
+            .populate('project', 'name')
+            .populate('department', 'name')
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message:'Pending Financial Period Reports',
+            data: pendingFinancialPeriodReport
+        });
+    } catch (error) {
+        console.error("Error fetching pending financial period reports:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Server error while fetching pending expenses."
+        });
+    }
+}
+
+
+

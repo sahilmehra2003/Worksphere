@@ -15,7 +15,11 @@ export const expenseSchema = new Schema({
             "Software Subscriptions",
             "Office Supplies",
             "Marketing",
+            "Project Expenses",
+            "Client Expenses",
             "Miscellaneous",
+            "Bonuses"
+
         ]
     },
     amount: {

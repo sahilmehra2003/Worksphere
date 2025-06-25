@@ -1,454 +1,338 @@
-# Worksphere - Internal HRMS & Employee Portal
-
-**Status:** Active Development
+Worksphere - Internal HRMS & Employee Portal
+Status: Active Development
 
 Worksphere is a full-stack internal HR management and employee self-service platform designed to streamline various company processes. This monorepo contains the backend API built with Node.js, Express, and MongoDB, and the frontend client application built with React.
 
-## Table of Contents
+Table of Contents
+Key Features
 
-- [Key Features](#key-features)
-  - [Backend (Implemented)](#backend-implemented)
-  - [Frontend (Implemented)](#frontend-implemented)
-- [Upcoming Features / Roadmap](#upcoming-features--roadmap)
-  - [Backend Next Steps](#backend-next-steps)
-  - [Frontend Next Steps](#frontend-next-steps)
-  - [Deferred Features](#deferred-features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-- [Environment Variables](#environment-variables)
-- [Running the Application](#running-the-application)
-- [API Endpoints](#api-endpoints)
+Backend (Implemented)
 
-## Key Features
+Frontend (Implemented)
 
-### Backend (Implemented)
+Upcoming Features / Roadmap
 
-* **Authentication & Authorization:**
-    * Multiple authentication methods:
-        * Email/Password with JWT
-        * Google OAuth 2.0 integration
-        * OTP-based Email Verification
-    * Secure token storage in HttpOnly cookies
-    * Automatic token refresh mechanism
-    * Role-based access control (RBAC)
-    * Permission-based authorization
-    * Session management
-    * Password reset flow with secure tokens
-    * Account lockout after failed attempts
-    * Remember me functionality
-    * Logout with token invalidation
+Backend Next Steps
 
-* **Employee Management:**
-    * Detailed `Employee` model storing profile info, contact details, address, role, manager, department, projects, clients etc.
-    * Full CRUD API for managing employees
-    * Role-based access control for employee data
-    * Manager-subordinate relationship management
-    * Profile picture upload and management
-    * Employee search and filtering
-    * Department assignment
-    * Project assignment
-    * Skills and certifications tracking
+Frontend Next Steps
 
-* **Department Management:**
-    * `Department` model with full CRUD operations
-    * Employee-department assignment management
-    * Department hierarchy support
-    * Role-based access control for department operations
-    * Department head assignment
-    * Department budget tracking
-    * Department performance metrics
+Deferred Features
 
-* **Client Management:**
-    * `Client` model with contact info, location, status
-    * Full CRUD API for managing clients
-    * Geocoding integration (OpenCage API) for location coordinates
-    * Client-project relationship management
-    * Client contact management
-    * Client billing information
-    * Client status tracking
-    * Client document management
+Tech Stack
 
-* **Project Management:**
-    * `Project` model with full CRUD operations
-    * Project-client relationship management
-    * Project team assignment capabilities
-    * Project status tracking
-    * Project timeline management
-    * Project budget tracking
-    * Project document management
-    * Project milestone tracking
-    * Project risk management
+Project Structure
 
-* **Task Management:**
-    * `Task` model with title, assignee, deadline, status, priority
-    * Full CRUD API for tasks
-    * Task assignment and tracking
-    * Task status updates and notifications
-    * Task reopening functionality
-    * Task dependencies
-    * Task comments and attachments
-    * Task time tracking
-    * Task priority levels
-    * Task categories and tags
+Getting Started
 
-* **Timesheet Management:**
-    * `Timesheet` and `TimesheetEntry` models
-    * Weekly timesheet creation and management
-    * Time entry tracking with project/client/task association
-    * Timesheet submission workflow (Draft → Submitted → Approved/Rejected)
-    * Manager approval/rejection with comments
-    * Timesheet status tracking
-    * Role-based access control for timesheet operations
-    * Timesheet export functionality
-    * Timesheet analytics and reporting
-    * Overtime tracking
-    * Billable hours tracking
+Prerequisites
 
-* **Leave Management:**
-    * `LeaveRequest` and `LeaveBalance` models
-    * Leave application and approval workflow
-    * Leave balance tracking
-    * Leave type management
-    * Manager approval/rejection with comments
-    * Leave cancellation functionality
-    * Leave calendar integration
-    * Leave policy management
-    * Leave balance reports
-    * Leave history tracking
+Installation
 
-* **Calendar / Holiday Management:**
-    * `CountryCalendar` model for holiday tracking
-    * Holiday calendar integration (Calendarific API)
-    * Weekend and holiday definitions per country
-    * Manual holiday management
-    * Calendar data API for frontend
-    * Multiple calendar views
-    * Calendar sharing
-    * Event reminders
-    * Recurring events
+Environment Variables
 
-* **Email Integration:**
-    * Nodemailer setup with Mailtrap for development
-    * HTML email templates for various notifications
-    * Email verification and password reset flows
-    * Welcome emails for new employees
-    * Automated notifications
-    * Email scheduling
-    * Email tracking
-    * Template management
+Running the Application
 
-### Frontend (Implemented)
+API Endpoints
 
-* **Authentication Pages:**
-    * Login with email/password
-    * Google OAuth login
-    * Signup with email verification
-    * OTP Verification
-    * Forgot Password
-    * Reset Password
-    * Change Password
-    * Remember me functionality
-    * Session management
-    * Token refresh handling
+Key Features
+Backend (Implemented)
+Authentication & Authorization:
 
-* **Dashboard:**
-    * Role-based dashboards (Employee, Manager, Admin, HR)
-    * Quick action cards
-    * Recent activities
-    * Pending approvals
-    * Upcoming deadlines
-    * Performance metrics
-    * Team overview
-    * Project status
-    * Leave balance
-    * Timesheet status
+Multiple authentication methods: Email/Password with JWT, Google OAuth 2.0, and OTP-based Email Verification.
 
-* **Timesheet Management:**
-    * Weekly timesheet view
-    * Time entry form
-    * Project/client/task selection
-    * Timesheet submission
-    * Approval/rejection workflow
-    * Timesheet history
-    * Timesheet export
-    * Time tracking
-    * Overtime calculation
-    * Billable hours tracking
+Role-based and permission-based authorization.
 
-* **Leave Management:**
-    * Leave application form
-    * Leave balance display
-    * Leave history
-    * Approval/rejection workflow
-    * Calendar integration
-    * Leave policy display
-    * Leave type selection
-    * Leave duration calculation
-    * Leave cancellation
-    * Leave balance reports
+Secure session management with token refresh.
 
-* **Task Management:**
-    * Task list view
-    * Task creation and editing
-    * Task assignment
-    * Status updates
-    * Priority management
-    * Task filtering
-    * Task search
-    * Task comments
-    * Task attachments
-    * Task dependencies
+Employee & Department Management:
 
-* **Employee Profile:**
-    * Profile view and edit
-    * Department information
-    * Project assignments
-    * Manager information
-    * Contact details
-    * Skills and certifications
-    * Profile picture
-    * Employment history
-    * Education details
-    * Emergency contacts
+Full CRUD APIs for managing detailed employee profiles and departments.
 
-* **Company Directory:**
-    * Employee search
-    * Department view
-    * Organization chart
-    * Contact information
-    * Employee filtering
-    * Department filtering
-    * Role-based access
-    * Contact details
-    * Team structure
-    * Reporting hierarchy
+Manager-subordinate relationship and department head assignments.
 
-## Upcoming Features / Roadmap
+Client & Project Management:
 
-### Backend Next Steps
+Full CRUD APIs for managing clients and projects.
 
-* **Performance Management:**
-    * Review cycle management
-    * Performance review forms
-    * Rating system
-    * Feedback collection
+Geocoding integration for client locations.
 
-* **Bonus System:**
-    * Bonus calculation
-    * Approval workflow
-    * Payment tracking
+Tracking of project status, budget, and team assignments.
 
-* **Attendance System:**
-    * Check-in/check-out tracking
-    * Location-based attendance
-    * Attendance reports
+Task Management:
 
-* **Onboarding/Offboarding:**
-    * Employee onboarding workflow
-    * Document management
-    * Checklist system
-    * Exit interview process
+Comprehensive Task model with full CRUD API.
 
-### Frontend Next Steps
+Features include task assignment, status updates, dependencies, and comments.
 
-* **Performance Review UI:**
-    * Review form interface
-    * Rating system
-    * Feedback collection
-    * History view
+Leave Management:
 
-* **Bonus Management UI:**
-    * Bonus calculation interface
-    * Approval workflow
-    * Payment tracking
+LeaveRequest and LeaveBalance models with a full approval workflow.
 
-* **Attendance System UI:**
-    * Check-in/check-out interface
-    * Attendance calendar
-    * Reports and analytics
+Integration with a country-specific holiday calendar.
 
-* **Onboarding/Offboarding UI:**
-    * Onboarding checklist
-    * Document upload
-    * Progress tracking
+Financial Transaction Management:
 
-### Deferred Features
+Refactored, scalable controllers for Expenses, Revenues, and Reporting.
 
-* **AI Chatbot / HR Assistant:**
-    * Automated responses
-    * FAQ handling
-    * Basic HR queries
+Full CRUD operations for expense and revenue records.
 
-* **Mobile Application:**
-    * Native mobile app
-    * Push notifications
-    * Offline support
+Intelligent logic to allocate project-based costs to either internal projects or clients.
 
-* **Advanced Analytics:**
-    * Custom reports
-    * Data visualization
-    * Predictive analytics
+Automatic-tagging for easy filtering.
 
-## Tech Stack
+Soft-delete functionality for financial records to maintain audit trails.
 
-* **Backend:**
-    * Node.js
-    * Express.js
-    * MongoDB
-    * Mongoose
-    * JWT for authentication
-    * Google OAuth 2.0
-    * Nodemailer for emails
-    * OpenCage for geocoding
-    * Calendarific for holidays
-    * Multer for file uploads
-    * Socket.IO for real-time features
+Attendance System:
 
-* **Frontend:**
-    * React
-    * Redux for state management
-    * Material-UI for components
-    * React Router for navigation
-    * Axios for API calls
-    * React Query for data fetching
-    * Chart.js for visualizations
-    * Google OAuth client
-    * React Hook Form
-    * Yup for validation
-    * Socket.IO client
+Attendance model to track daily records.
 
-* **Development Tools:**
-    * Git for version control
-    * ESLint for code linting
-    * Prettier for code formatting
-    * Jest for testing
-    * Postman for API testing
-    * Docker for containerization
-    * GitHub Actions for CI/CD
+Controllers for employee check-in and check-out with robust business logic (e.g., late check-in, early checkout, half-days).
 
-## Project Structure
+A complete approval workflow for attendance shortfalls and correction requests.
 
-```
+Role-based permissions for all attendance-related actions.
+
+Timesheet Management:
+
+TimeLog model tightly integrated with Attendance, Projects, and Tasks.
+
+Weekly timesheet submission workflow.
+
+Backend validation to ensure logged hours match required work hours (accounting for holidays, leaves, and half-days).
+
+Manager approval workflow for submitted timesheets.
+
+Bonus System:
+
+Flexible two-model system (BonusType and BonusAward) to define and grant various types of bonuses (monetary, non-monetary, leave credits).
+
+Complete bonus lifecycle management: awarding, manager approval/rejection, and payment tracking.
+
+Seamless integration with the transaction module to automatically create an Expense record when a bonus is paid out.
+
+Performance Management:
+
+Complete performance review system with review cycles and employee performance tracking.
+
+Review cycle management with start/end dates and status tracking.
+
+Employee performance review workflow: initiation, self-assessment, manager review, and completion.
+
+Role-based access control for different review stages (admin, manager, employee).
+
+Comprehensive API endpoints for creating, updating, and retrieving performance reviews.
+
+Goal Management:
+
+Goal setting and tracking system with progress monitoring.
+
+Goal categories, priorities, and status management.
+
+Comment system for goal discussions and updates.
+
+Circular progress indicators and visual goal tracking.
+
+Team Management:
+
+Team creation and member management with role assignments.
+
+Project-team integration for resource allocation.
+
+Team performance tracking and member management.
+
+Review Cycle Management:
+
+Administrative control over performance review cycles.
+
+Cycle creation, status management, and employee assignment.
+
+Integration with performance review workflow.
+
+Email Integration:
+
+Nodemailer setup with HTML templates for various notifications, including welcome emails and password resets.
+
+Frontend (Implemented)
+Authentication Pages:
+
+Full suite of authentication pages including Login, Signup, OTP Verification, and Password Reset.
+
+Dashboard:
+
+Role-based dashboards with quick action cards and summaries.
+
+Financial Management Pages:
+
+Annual Financial Report: A dynamic page to view yearly summaries, with detailed, filterable lists of all expenses and revenues.
+
+Transaction Creation Form: A comprehensive form to create new expense and revenue records.
+
+Recurring Transaction Form: A dedicated UI to define recurring expense rules.
+
+Approvals Page: A centralized page for managers to approve/reject pending financial transactions.
+
+Time Management Page (AddTimeLogPage):
+
+A unified, tabbed interface for all time-related tasks.
+
+Attendance Tab: Features a check-in/check-out component, a half-day request workflow, and a history of recent attendance records with the ability to request corrections or dispute rejections.
+
+Timesheet Tab: A complete weekly timesheet UI with a week navigator, a grid to display logged hours against projects, and a form to add new time entries.
+
+Bonus Management Page:
+
+A complete UI for awarding bonuses.
+
+A view for managers to see and approve pending bonus awards.
+
+A history view for employees to track their own bonuses.
+
+Performance Management Pages:
+
+Comprehensive performance review interface with multiple tabs.
+
+Initiate Review Tab: Admin interface to create new performance reviews for employees.
+
+My Reviews Tab: Employee view of their own performance reviews and self-assessment forms.
+
+Pending Reviews Tab: Manager view of employees with initiated reviews requiring action.
+
+Team Reviews Tab: Manager view of team member reviews and manager assessment forms.
+
+Review Details Modal: Detailed view of performance reviews with self-assessment and manager review forms.
+
+Goal Management Page:
+
+Interactive goal setting and tracking interface.
+
+Goal creation form with categories, priorities, and target dates.
+
+Visual progress tracking with circular progress indicators.
+
+Goal list view with filtering and status management.
+
+Comment system for goal discussions and updates.
+
+Team Management Page:
+
+Team creation and management interface.
+
+Member assignment and role management.
+
+Team details modal with comprehensive team information.
+
+Project integration for team assignments.
+
+Review Cycle Management Page:
+
+Administrative interface for managing performance review cycles.
+
+Cycle creation form with date ranges and employee assignments.
+
+Cycle status management and monitoring.
+
+Core HR Pages:
+
+Leave Management (application, history, balance).
+
+Task Management (list view, creation, editing).
+
+Employee Profile and Company Directory.
+
+Upcoming Features / Roadmap
+Backend Next Steps
+Onboarding/Offboarding:
+
+Employee onboarding workflow
+
+Document management
+
+Checklist system
+
+Exit interview process
+
+Automation:
+
+Implement node-cron scheduler to automatically generate recurring transactions and perform other scheduled tasks.
+
+Frontend Next Steps
+Onboarding/Offboarding UI:
+
+Onboarding checklist
+
+Document upload
+
+Progress tracking
+
+Reporting Enhancements:
+
+Add "Export to CSV/PDF" functionality for financial reports.
+
+Deferred Features
+AI Chatbot / HR Assistant
+
+Native Mobile Application
+
+Advanced Analytics & Custom Reporting
+
+Tech Stack
+Backend: Node.js, Express.js, MongoDB, Mongoose, JWT, Google OAuth 2.0, Nodemailer, Multer, Socket.IO
+
+Frontend: React, Redux, Material-UI, React Router, Axios, Chart.js
+
+Development Tools: Git, ESLint, Prettier, Jest, Postman, Docker, GitHub Actions
+
+Project Structure
 worksphere/
-├── client/              # React Frontend Application
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── redux/
-│   │   ├── services/
-│   │   ├── utils/
-│   │   ├── hooks/
-│   │   ├── context/
-│   │   ├── assets/
-│   │   └── App.js
-│   ├── .env.local
-│   └── package.json
-├── server/              # Node.js Backend Application
-│   ├── config/
-│   ├── controllers/
-│   ├── middlewares/
-│   ├── models/
-│   ├── routes/
-│   ├── utils/
-│   ├── mailTemplates/
-│   ├── uploads/
-│   ├── .env
-│   └── package.json
-└── README.md
-```
+├── client/
+└── server/
 
-## Getting Started
+Getting Started
+Prerequisites
+Node.js (v18.x or later)
 
-### Prerequisites
+MongoDB (v6.x or later)
 
-* Node.js (v18.x or later)
-* MongoDB (v6.x or later)
-* npm or yarn
-* Git
-* Google Cloud Platform account (for OAuth)
+npm or yarn
 
-### Installation
+Git
 
-1. **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd worksphere
-    ```
+Installation
+Clone the repository:
 
-2. **Install Backend Dependencies:**
-    ```bash
-    cd server
-    npm install
-    ```
+git clone <repository-url>
+cd worksphere
 
-3. **Install Frontend Dependencies:**
-    ```bash
-    cd ../client
-    npm install
-    ```
+Install Backend Dependencies:
 
-## Environment Variables
+cd server
+npm install
 
-### Backend (.env)
-```
+Install Frontend Dependencies:
+
+cd ../client
+npm install
+
+Environment Variables
+Backend (/server/.env)
 MONGODB_URI=your_mongodb_uri
 JWT_SECRET=your_jwt_secret
-JWT_EXPIRE=1d
-MAILTRAP_HOST=your_mailtrap_host
-MAILTRAP_PORT=your_mailtrap_port
-MAILTRAP_USER=your_mailtrap_user
-MAILTRAP_PASS=your_mailtrap_pass
-OPENCAGE_API_KEY=your_opencage_key
-CALENDARIFIC_API_KEY=your_calendarific_key
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:4000/api/auth/google/callback
-FRONTEND_URL=http://localhost:3000
-```
+# ... (and other required variables)
 
-### Frontend (.env.local)
-```
+Frontend (/client/.env.local)
 REACT_APP_API_URL=http://localhost:4000/api
-REACT_APP_WS_URL=ws://localhost:4000
 REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
-```
 
-## Running the Application
+Running the Application
+Start Backend Server:
 
-1. **Start Backend Server:**
-    ```bash
-    cd server
-    npm run dev
-    ```
+cd server
+npm run dev
 
-2. **Start Frontend Development Server:**
-    ```bash
-    cd client
-    npm start
-    ```
+Start Frontend Development Server:
 
-The application will be available at:
-* Frontend: http://localhost:3000
-* Backend API: http://localhost:4000
+cd client
+npm start
 
-## API Endpoints
-
-Detailed API documentation is available in the `/server/docs` directory. Key endpoints include:
-
-* `/api/auth/*` - Authentication endpoints (including Google OAuth)
-* `/api/employees/*` - Employee management
-* `/api/departments/*` - Department management
-* `/api/clients/*` - Client management
-* `/api/projects/*` - Project management
-* `/api/tasks/*` - Task management
-* `/api/timesheets/*` - Timesheet management
-* `/api/leaves/*` - Leave management
-* `/api/calendar/*` - Calendar and holiday management
-* `/api/upload/*` - File upload endpoints
-
-
-
+API Endpoints
+Detailed API documentation is available in the /server/docs directory.

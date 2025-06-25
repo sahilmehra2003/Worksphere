@@ -44,6 +44,10 @@ const financialPeriodRecordSchema = new Schema({
   preparedBy: { type: Schema.Types.ObjectId, ref: 'Employee' },
   closedBy: { type: Schema.Types.ObjectId, ref: 'Employee' },
   closingDate: Date,
+  isDelete: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: true 
 });
@@ -60,7 +64,7 @@ financialPeriodRecordSchema.pre('save', function (next) {
   next();
 });
 
-// --- Static Methods ---
+
 
 // Method to find or create a financial period record
 financialPeriodRecordSchema.statics.findOrCreateRecord = async function ({ year, monthName, departmentId = null, companyId = null }) {
@@ -100,8 +104,6 @@ financialPeriodRecordSchema.methods.addRevenueReference = async function (revenu
   console.warn(`Revenue ${revenueDoc._id} already linked to FinancialPeriodRecord ${this._id}`);
   return this;
 };
-
-// (Consider methods for removing expenses/revenues and recalculating totals if needed)
 
 
 const FinancialPeriodRecord = mongoose.model('FinancialPeriodRecord', financialPeriodRecordSchema);

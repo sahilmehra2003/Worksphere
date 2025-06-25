@@ -46,11 +46,11 @@ const initialState = {
 // 1. Fetch All Employees (Internal/Admin view with more details)
 export const fetchAllEmployeesInternal = createAsyncThunk(
     'employee/fetchAllInternal',
-    async ({ page = 1, limit = 10, filters = {} } = {}, { rejectWithValue }) => {
+    async ({ page = 1, limit = 10, filters = {}, token } = {}, { rejectWithValue }) => {
         try {
             // Construct query parameters for pagination and filtering
             const params = { page, limit, ...filters };
-            const response = await apiConnector('GET', EMPLOYEE_ENDPOINTS.GET_ALL_EMPLOYEES_INTERNAL_API, null, null, params);
+            const response = await apiConnector('GET', EMPLOYEE_ENDPOINTS.GET_ALL_EMPLOYEES_INTERNAL_API, null, { Authorization: `Bearer ${token}` }, params);
             if (!response.data.success) {
                 return rejectWithValue(response.data.message || 'Failed to fetch employees');
             }

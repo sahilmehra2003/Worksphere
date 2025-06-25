@@ -209,7 +209,6 @@ export const createClient = async (req, res) => {
 };
 
 
-// --- updateClient ---
 export const updateClient = async (req, res) => {
     try {
         const { id } = req.params;
